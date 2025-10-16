@@ -253,15 +253,16 @@ export function subscribeToCanvasObjects(
  */
 export async function broadcastShapePreview(
   canvasId: string,
-  preview: ShapePreview | null
+  preview: ShapePreview | null,
+  userId: string
 ): Promise<void> {
   const rtdb = getRTDB();
-  const previewRef = ref(rtdb, `shapePreviews/${canvasId}/${preview?.userId}`);
+  const previewRef = ref(rtdb, `shapePreviews/${canvasId}/${userId}`);
   
   if (preview) {
     await set(previewRef, preview);
   } else {
-    // Clear preview
+    // Clear preview - userId is required to know which preview to remove
     await remove(previewRef);
   }
 }

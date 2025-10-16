@@ -1,7 +1,7 @@
 # Progress: CollabCanvas v3
 
 ## Current Status
-**Phase:** MVP Core Features Complete  
+**Phase:** MVP Complete + Deployed ✅  
 **Week:** 1 (MVP Focus)  
 **Date:** 2025-10-16
 
@@ -19,7 +19,11 @@
 ✅ **Objects Feature:** Rectangles and circles with real-time drag and transform sync  
 ✅ **DRY Architecture:** Shared useShapeInteractions hook eliminates code duplication  
 ✅ **Visual Feedback:** Opacity changes when objects are transformed by other users  
-✅ **Real-time Collaboration:** Sub-100ms object sync, smooth 60fps transform broadcasting
+✅ **Real-time Collaboration:** Sub-100ms object sync, smooth 60fps transform broadcasting  
+✅ **Deployment:** Successfully deployed to Vercel, publicly accessible  
+✅ **Database Security:** Firestore and Realtime Database rules secured with authentication requirements  
+✅ **Delete Objects:** Keyboard shortcuts (Delete/Backspace) with real-time sync across users  
+✅ **Ghost Preview Fix:** Fixed shape preview persistence bug - previews now properly clear from RTDB
 
 ## What's Left to Build
 
@@ -64,20 +68,29 @@
   - [x] Visual feedback for remote transforms (opacity)
   - [x] Shared useShapeInteractions hook (DRY architecture)
 
-- [ ] **Deployment** (Validation)
-  - [ ] Deploy to Vercel
-  - [ ] Test with 2+ concurrent users
-  - [ ] Verify cursor sync <50ms
-  - [ ] Verify object sync <100ms
-  - [ ] Verify persistence on refresh
+- [x] **Deployment** (Validation)
+  - [x] Deploy to Vercel
+  - [x] Configure Firebase authorized domains
+  - [x] Verify deployment working with authentication
+  - [ ] Test with 2+ concurrent users (performance validation)
+  - [ ] Verify cursor sync <50ms (performance validation)
+  - [ ] Verify object sync <100ms (performance validation)
+
+- [x] **Delete Objects** (Pre-AI Agent)
+  - [x] Add delete functionality to objects
+  - [x] Keyboard shortcut (Delete/Backspace)
+  - [x] Sync deletion across users via Firestore
+  - [x] Broadcast deletion via RTDB deltas
+  - [x] Wire up delete through canvas page and ObjectRenderer
 
 ### Post-MVP Features
-- [ ] **Database Security** (CRITICAL - Before Production!)
-  - [ ] Update Firestore security rules (require authentication)
-  - [ ] Update Realtime Database security rules (user-specific access)
-  - [ ] Test rules with Firebase Emulator
-  - [ ] Verify authenticated access only
-  - [ ] Document security rules in codebase
+- [x] **Database Security** (CRITICAL - Before Production!)
+  - [x] Update Firestore security rules (require authentication)
+  - [x] Update Realtime Database security rules (user-specific access)
+  - [x] Deploy rules to Firebase Console
+  - [x] Verify authenticated access only
+  - [x] Document security rules in codebase
+  - [ ] Test rules with Firebase Emulator (optional validation)
 
 - [ ] **AI Agent Feature**
   - [ ] LangChain integration
@@ -94,11 +107,11 @@
   - [ ] Lines
   - [ ] Solid color support
 
-- [ ] **Transform Operations**
-  - [ ] Resize shapes
-  - [ ] Rotate shapes
+- [x] **Transform Operations**
+  - [x] Resize shapes
+  - [x] Rotate shapes
   - [ ] Duplicate shapes
-  - [ ] Delete shapes
+  - [ ] Delete shapes (moved to Pre-AI Agent priority)
 
 - [ ] **Advanced Selection**
   - [ ] Multi-select (shift-click)
@@ -145,15 +158,13 @@
   - Established patterns for future shape types and AI integration
 
 ## In Progress
-🔄 Ready for deployment and testing phase
+🔄 **Next:** Begin AI agent implementation with LangChain integration
 
 ## Known Issues
-- Deployment to Vercel not yet completed
-- Performance benchmarks need validation with production Firebase
-- Security rules are in development mode (insecure, needs update before production)
+- Performance benchmarks need validation with real concurrent users
 
 ## Blockers
-None - core MVP features complete, ready to deploy and test
+None - MVP complete with delete functionality, ready for AI agent implementation
 
 ## Performance Targets (To Validate)
 - **Cursor Sync:** <50ms latency
@@ -171,7 +182,7 @@ None - core MVP features complete, ready to deploy and test
 - [x] Multiplayer cursors with name labels
 - [x] Presence awareness (who's online)
 - [x] User authentication (users have accounts/names)
-- [ ] Deployed and publicly accessible - **NEXT STEP**
+- [x] Deployed and publicly accessible ✅
 
 ## Metrics
 - **Documentation Files:** 7 (Memory Bank complete)
@@ -180,9 +191,42 @@ None - core MVP features complete, ready to deploy and test
 - **Shape Types:** 2 (Rectangle, Circle)
 - **Custom Hooks:** 5 (useAuth, usePresence, useCanvas, useObjects, useShapeInteractions)
 - **Tests Written:** 0 (to be added)
-- **Deployment Status:** Ready for deployment
+- **Deployment Status:** ✅ Deployed to Vercel
 
 ## Recent Updates
+
+### 2025-10-16 - MVP Deployed + Databases Secured 🚀
+
+**Deployment:**
+- ✅ Successfully deployed to Vercel
+- ✅ Configured Firebase authorized domains for Vercel
+- ✅ Verified authentication working in production
+- ✅ Application publicly accessible
+
+**Database Security:**
+- ✅ Updated Firestore rules to require authentication
+- ✅ Updated Realtime Database rules with user-specific access control
+- ✅ Deployed security rules to Firebase Console
+- ✅ Created firebase.json and configuration files
+
+**Delete Objects Feature:**
+- ✅ Keyboard shortcuts (Delete/Backspace) for selected objects
+- ✅ Real-time deletion sync across users
+- ✅ Proper selection state management
+- ✅ Optimistic updates for smooth UX
+
+**Ghost Preview Bug Fix:**
+- ✅ Fixed critical bug where shape previews persisted in RTDB
+- ✅ Updated broadcastShapePreview to require userId parameter
+- ✅ Previews now properly clear when shape is placed
+- ✅ Previews clear on tool switch, disconnect, and refresh
+- ✅ Clean state management - no previews unless actively creating
+
+**Ready for AI Agent:**
+- All core MVP features complete
+- Delete functionality integrated
+- Shape preview system working correctly
+- Ready to begin LangChain integration
 
 ### 2025-10-16 - MVP Core Complete 🎉
 
@@ -212,11 +256,11 @@ None - core MVP features complete, ready to deploy and test
 - 🎯 Performance optimized (throttled broadcasts, optimistic updates)
 
 ## Next Immediate Steps
-1. **Deploy to Vercel** - Make it publicly accessible
-2. **Test with multiple users** - Validate real-world performance
-3. **Benchmark performance** - Verify cursor/object sync latency targets
-4. **Update security rules** - Switch from development to authenticated mode
-5. **Document deployment** - Add deployment guide to README
+1. ✅ **Deploy to Vercel** - Successfully deployed and accessible
+2. ✅ **Secure databases** - Firebase rules updated to require authentication
+3. ✅ **Implement delete shapes** - Keyboard shortcuts with real-time sync complete
+4. **Begin AI agent** - Start LangChain integration with OpenAI function calling
+5. **Performance validation** - Test with multiple concurrent users
 
 ---
 *Last Updated: 2025-10-16*

@@ -13,6 +13,7 @@ interface ObjectRendererProps {
   onObjectTransformStart?: (objectId: string) => void;
   onObjectTransform?: (objectId: string, updates: Partial<CanvasObject>) => void;
   onObjectTransformEnd?: (objectId: string) => void;
+  onObjectSelect?: (objectId: string | null) => void;
   currentUserId?: string;
   presenceUsers?: Record<string, { displayName: string }>;
   deselectTrigger?: number; // Increment this to trigger deselection
@@ -25,6 +26,7 @@ export function ObjectRenderer({
   onObjectTransformStart,
   onObjectTransform,
   onObjectTransformEnd,
+  onObjectSelect,
   currentUserId,
   presenceUsers = {},
   deselectTrigger,
@@ -35,11 +37,17 @@ export function ObjectRenderer({
   useEffect(() => {
     if (deselectTrigger !== undefined) {
       setSelectedId(null);
+      if (onObjectSelect) {
+        onObjectSelect(null);
+      }
     }
-  }, [deselectTrigger]);
+  }, [deselectTrigger, onObjectSelect]);
   
   const handleSelect = (id: string) => {
     setSelectedId(id);
+    if (onObjectSelect) {
+      onObjectSelect(id);
+    }
   };
   
   const handleDragMove = (objectId: string, position: { x: number; y: number }) => {

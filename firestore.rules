@@ -1,13 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ⚠️ WARNING: DEVELOPMENT MODE - INSECURE
-    // These rules allow public read/write for development
-    // BEFORE PRODUCTION: Update to require authentication
-    // See docs/firebase-security-rules.md for production rules
+    // ✅ PRODUCTION MODE - SECURE
+    // These rules require authentication for all operations
+    // Updated: 2025-10-16
     
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Canvas objects - authenticated users can read/write
+    match /canvases/{canvasId}/objects/{objectId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
+    // Deny all other access by default
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

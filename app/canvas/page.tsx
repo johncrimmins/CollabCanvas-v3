@@ -23,11 +23,13 @@ export default function CanvasPage() {
   const [deselectTrigger, setDeselectTrigger] = useState(0);
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
   const [shapePreviews, setShapePreviews] = useState<Record<string, ShapePreviewType>>({});
+  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
   
   const { 
     objects, 
     createObject, 
     updateObject, 
+    deleteObject,
     broadcastObjectMove,
     broadcastObjectTransformStart,
     broadcastObjectTransform,
@@ -52,11 +54,28 @@ export default function CanvasPage() {
     return unsubscribe;
   }, [canvasId]);
   
+  // One-time cleanup of any stale previews on mount
+  useEffect(() => {
+    if (!canvasId || !user) return;
+    
+    // Clear our own preview on mount in case we left with a preview active
+    const clearPreview = async () => {
+      try {
+        await broadcastShapePreview(canvasId, null, user.id);
+        console.log('[Preview] Cleared stale preview on mount');
+      } catch (error) {
+        console.error('[Preview] Failed to clear preview on mount:', error);
+      }
+    };
+    
+    clearPreview();
+  }, [canvasId, user]);
+  
   // Throttled function to broadcast shape preview
   const throttledBroadcastPreview = useRef(
-    throttle(async (canvasId: string, preview: ShapePreviewType | null) => {
+    throttle(async (canvasId: string, preview: ShapePreviewType | null, userId: string) => {
       try {
-        await broadcastShapePreview(canvasId, preview);
+        await broadcastShapePreview(canvasId, preview, userId);
       } catch (error) {
         console.error('Failed to broadcast shape preview:', error);
       }
@@ -65,11 +84,14 @@ export default function CanvasPage() {
   
   // Broadcast shape preview when cursor moves in shape creation mode
   useEffect(() => {
-    if (!canvasId || !user || tool === 'select' || !cursorPosition) {
-      // Clear preview if switching to select tool or no cursor position
-      if (canvasId && user && tool === 'select') {
-        broadcastShapePreview(canvasId, null).catch(console.error);
-      }
+    if (!canvasId || !user) return;
+    
+    // Clear preview if switching to select tool or no cursor position
+    if (tool === 'select' || !cursorPosition) {
+      // Use non-throttled immediate clear
+      broadcastShapePreview(canvasId, null, user.id).then(() => {
+        console.log('[Preview] Cleared preview (tool or cursor changed)');
+      }).catch(console.error);
       return;
     }
     
@@ -85,11 +107,28 @@ export default function CanvasPage() {
       userName: user.displayName || user.email || 'Anonymous',
     };
     
-    throttledBroadcastPreview(canvasId, preview);
+    // Throttle the preview updates for performance
+    throttledBroadcastPreview(canvasId, preview, user.id);
   }, [canvasId, user, tool, cursorPosition, throttledBroadcastPreview]);
+  
+  // Cleanup: Clear shape preview on unmount or when leaving the canvas
+  useEffect(() => {
+    return () => {
+      if (canvasId && user) {
+        broadcastShapePreview(canvasId, null, user.id).catch(console.error);
+      }
+    };
+  }, [canvasId, user]);
   
   const handlePlaceShape = useCallback(async (position: Point) => {
     if (!canvasId || tool === 'select') return;
+    
+    // IMMEDIATELY clear the preview BEFORE creating object
+    // This ensures no throttled updates come after
+    if (user) {
+      await broadcastShapePreview(canvasId, null, user.id);
+      console.log('[Preview] Cleared preview before placing shape');
+    }
     
     // Create shape at clicked position
     await createObject({
@@ -101,12 +140,8 @@ export default function CanvasPage() {
       fill: '#3B82F6',
     });
     
-    // Clear the preview
-    if (user) {
-      await broadcastShapePreview(canvasId, null);
-    }
-    
     // Switch back to select tool after placing
+    // The effect will handle clearing preview when tool changes
     setTool('select');
   }, [canvasId, tool, createObject, user]);
   
@@ -123,6 +158,36 @@ export default function CanvasPage() {
   const handleCursorMove = useCallback((position: Point) => {
     setCursorPosition(position);
   }, []);
+  
+  const handleObjectSelect = useCallback((objectId: string | null) => {
+    setSelectedObjectId(objectId);
+  }, []);
+  
+  const handleDeleteSelected = useCallback(async () => {
+    if (selectedObjectId && canvasId) {
+      try {
+        await deleteObject(selectedObjectId);
+        setSelectedObjectId(null);
+      } catch (error) {
+        console.error('Failed to delete object:', error);
+      }
+    }
+  }, [selectedObjectId, canvasId, deleteObject]);
+  
+  // Keyboard shortcuts for delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Delete or Backspace key
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectId) {
+        // Prevent backspace from navigating back in browser
+        e.preventDefault();
+        handleDeleteSelected();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedObjectId, handleDeleteSelected]);
   
   if (!canvasId) {
     return (
@@ -148,7 +213,10 @@ export default function CanvasPage() {
               
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setTool('select')}
+                  onClick={() => {
+                    setTool('select');
+                    // Effect will clear preview when tool changes
+                  }}
                   className={`p-2 rounded-md transition-colors ${
                     tool === 'select'
                       ? 'bg-blue-100 text-blue-700'
@@ -262,12 +330,13 @@ export default function CanvasPage() {
               onObjectTransformEnd={(objectId) => {
                 broadcastObjectTransformEnd(objectId);
               }}
+              onObjectSelect={handleObjectSelect}
               currentUserId={user?.id}
               presenceUsers={presence}
               deselectTrigger={deselectTrigger}
             />
             
-            {/* Render shape previews from all users (including our own) */}
+            {/* Render shape previews from all users */}
             {Object.entries(shapePreviews).map(([userId, preview]) => {
               return (
                 <ShapePreviewComponent key={userId} preview={preview} />
