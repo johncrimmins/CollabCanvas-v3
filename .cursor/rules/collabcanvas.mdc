@@ -1,0 +1,163 @@
+Description: CollabCanvas v3 project rules - Core patterns, architecture, and implementation guidelines
+
+## Project Overview
+CollabCanvas is a real-time collaborative canvas with AI agent capabilities. MVP focuses on bulletproof multiplayer infrastructure (sub-50ms cursors, sub-100ms objects), then layers AI agent for natural language control.
+
+## Architecture: Vertical Slicing
+Organize by feature, not layer. Each feature is self-contained with components/, hooks/, services/, types/.
+
+```
+src/features/
+  ├── auth/          # Firebase Auth, protected routes
+  ├── presence/      # User cursors, online status (RTDB)
+  ├── canvas/        # Konva.js rendering, pan/zoom
+  ├── objects/       # Shape creation/manipulation (Firestore + RTDB)
+  └── ai-agent/      # LangChain + OpenAI (post-MVP)
+```
+
+## Technology Stack
+- **Frontend:** Next.js 14+ (App Router), TypeScript, Tailwind CSS
+- **Canvas:** Konva.js + react-konva
+- **State:** Zustand (lightweight, performant)
+- **Backend:** Firebase (Auth, RTDB for ephemeral, Firestore for persistence)
+- **AI:** LangChain + OpenAI + LangSmith (post-MVP)
+- **Deploy:** Vercel
+
+## Critical Performance Targets
+- Cursor sync: <50ms latency
+- Object sync: <100ms latency
+- Frame rate: 60 FPS with 500+ objects
+- AI response: <2s (post-MVP)
+- Support: 5+ concurrent users
+
+## Database Strategy (Dual Database)
+- **Firebase RTDB:** Ephemeral data (cursors, presence, deltas) - optimized for low-latency
+- **Firestore:** Persistent data (objects, canvas state) - optimized for structured queries
+
+### Why Dual?
+- RTDB: Sub-50ms updates for cursors
+- Firestore: Better for complex object persistence
+- Leverage strengths of each
+
+## Conflict Resolution
+**Strategy:** Last-Write-Wins (LWW)
+- Simple, predictable, acceptable for MVP
+- Each update includes timestamp
+- Latest timestamp wins in conflicts
+- Document this choice in code comments
+
+## Real-Time Data Flow Patterns
+
+### Cursor Movement
+```typescript
+Mouse move → Throttle (16ms/60fps) → Zustand update → RTDB broadcast
+→ Other users' listeners → Their Zustand → Re-render
+[Target: <50ms total latency]
+```
+
+### Object Creation
+```typescript
+Create → Optimistic Zustand update → Firestore persist → RTDB delta broadcast
+→ Other users' listeners → Fetch if needed → Zustand update → Re-render
+[Target: <100ms total latency]
+```
+
+### Object Movement
+```typescript
+Drag → Optimistic local update → Throttle RTDB (16ms) → Debounce Firestore (300ms)
+[Perceived as instant]
+```
+
+## Performance Optimization Patterns
+1. **Throttle cursor updates:** 16ms (60fps) to RTDB
+2. **Debounce object persistence:** 300ms to Firestore after drag ends
+3. **Optimistic updates:** Always update local state first
+4. **Separate Konva layers:** Cursor layer separate from objects layer
+5. **React.memo:** Expensive components to prevent unnecessary re-renders
+
+## Code Patterns & Conventions
+
+### Service Layer Pattern
+Encapsulate all Firebase interactions in service files:
+```typescript
+// features/presence/services/presenceService.ts
+export const presenceService = {
+  joinCanvas: (userId: string, canvasId: string) => Promise<void>,
+  leaveCanvas: (userId: string, canvasId: string) => Promise<void>,
+  updateCursor: (userId: string, position: Point) => void,
+  subscribeToCursors: (canvasId: string, callback: Function) => Unsubscribe
+};
+```
+
+### Custom Hooks Pattern
+Each feature exposes React hooks for components:
+```typescript
+// features/presence/hooks/usePresence.ts
+export function usePresence(canvasId: string) {
+  const user = useAuth();
+  
+  useEffect(() => {
+    presenceService.joinCanvas(user.id, canvasId);
+    return () => presenceService.leaveCanvas(user.id, canvasId);
+  }, [canvasId, user.id]);
+}
+```
+
+### Naming Conventions
+- **Components:** PascalCase (e.g., `UserCursor.tsx`)
+- **Hooks:** camelCase with `use` prefix (e.g., `usePresence.ts`)
+- **Services:** camelCase with `Service` suffix (e.g., `presenceService.ts`)
+- **Types:** PascalCase (e.g., `User`, `CanvasObject`, `Point`)
+- **Files:** One component per file
+
+## TypeScript Standards
+- Strict mode enabled
+- Explicit return types for functions
+- No `any` types (use `unknown` if needed)
+- Interface for object shapes, Type for unions/intersections
+- Descriptive variable names (avoid abbreviations)
+
+## Build Order (MVP)
+Build vertically - complete each layer before next:
+1. **Auth** (foundation for all features)
+2. **Presence** (cursors + online users - hardest part)
+3. **Canvas** (Konva.js setup, pan/zoom)
+4. **Objects** (create/move shapes with sync)
+5. **Deploy** (Vercel, validate performance)
+
+Post-MVP: AI Agent (LangChain tools for canvas manipulation)
+
+## Firebase Security Considerations
+- Never expose credentials in client code
+- Use environment variables for all secrets
+- Implement Firestore security rules
+- Validate all user input
+- Rate limit expensive operations
+
+## Testing Strategy (Future)
+- Unit tests: Services and hooks (Vitest)
+- Integration tests: Feature interactions
+- E2E tests: Critical user flows (Playwright)
+- Performance benchmarks: Latency measurements
+
+## Common Pitfalls to Avoid
+1. ❌ Don't use Context API for frequent updates (use Zustand)
+2. ❌ Don't persist every cursor update to Firestore (use RTDB only)
+3. ❌ Don't block rendering on Firebase reads (optimistic updates)
+4. ❌ Don't forget to clean up RTDB listeners (memory leaks)
+5. ❌ Don't use `any` types (breaks type safety)
+
+## AI Agent Patterns (Post-MVP)
+- LangChain tool schema for canvas operations
+- Function calling with OpenAI
+- Multi-step planning for complex commands
+- Commands sync via existing object flow
+- LangSmith for observability
+
+## MVP Scope Focus
+**Remember:** MVP is about proving multiplayer infrastructure works flawlessly.
+- Simple but bulletproof > feature-rich but broken
+- Focus on performance targets (sub-50ms cursors, sub-100ms objects)
+- One shape type is enough for MVP
+- Basic pan/zoom is enough for MVP
+- Add features AFTER infrastructure is solid

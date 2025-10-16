@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ⚠️ WARNING: DEVELOPMENT MODE - INSECURE
+    // These rules allow public read/write for development
+    // BEFORE PRODUCTION: Update to require authentication
+    // See docs/firebase-security-rules.md for production rules
+    
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+
