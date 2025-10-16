@@ -128,12 +128,16 @@ npm run lint
 
 ## Deployment
 
-### Deploy to Vercel
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for complete deployment instructions.
+
+### Quick Deploy to Vercel
 
 1. Push code to GitHub
 2. Connect repository to Vercel
 3. Add environment variables in Vercel dashboard
 4. Deploy automatically on push to main
+
+**Important:** Make sure to add all Firebase environment variables to Vercel before deploying.
 
 ### Firebase Security Rules
 

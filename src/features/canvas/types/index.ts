@@ -1,21 +1,10 @@
 // Canvas feature types
 
-import { Point } from '@/shared/types';
-
-export interface CanvasConfig {
-  width: number;
-  height: number;
-  backgroundColor: string;
+/**
+ * Canvas viewport state
+ */
+export interface Viewport {
+  x: number;
+  y: number;
+  scale: number;
 }
-
-export interface DragState {
-  isDragging: boolean;
-  startPos: Point | null;
-}
-
-export interface CanvasInteraction {
-  type: 'pan' | 'select' | 'draw';
-  startPos?: Point;
-  currentPos?: Point;
-}
-

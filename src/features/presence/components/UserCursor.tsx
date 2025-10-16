@@ -2,22 +2,33 @@
 'use client';
 
 import { memo } from 'react';
-import { Cursor } from '@/shared/types';
-import { generateUserColor } from '@/shared/lib/utils';
+import { Cursor, generateUserColor } from '../types';
+
+interface Viewport {
+  x: number;
+  y: number;
+  scale: number;
+}
 
 interface UserCursorProps {
   cursor: Cursor;
+  viewport: Viewport;
 }
 
-export const UserCursor = memo(function UserCursor({ cursor }: UserCursorProps) {
+export const UserCursor = memo(function UserCursor({ cursor, viewport }: UserCursorProps) {
   const color = generateUserColor(cursor.userId);
+  
+  // Convert canvas coordinates to screen coordinates
+  // (cursor.position is now in canvas/world space)
+  const screenX = cursor.position.x * viewport.scale + viewport.x;
+  const screenY = cursor.position.y * viewport.scale + viewport.y;
   
   return (
     <div
       className="pointer-events-none absolute z-50 transition-transform duration-75"
       style={{
-        left: cursor.position.x,
-        top: cursor.position.y,
+        left: screenX,
+        top: screenY,
         transform: 'translate(-2px, -2px)',
       }}
     >

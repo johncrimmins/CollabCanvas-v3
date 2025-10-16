@@ -2,9 +2,10 @@
 'use client';
 
 import { useEffect, useCallback, useRef } from 'react';
-import { useStore } from '@/shared/lib/store';
+import { useObjectsStore } from '../lib/objectsStore';
 import { useAuth } from '@/features/auth';
-import { CanvasObject, Point } from '@/shared/types';
+import { CanvasObject, CreateObjectParams } from '../types';
+import { Point } from '@/shared/types';
 import { debounce, throttle } from '@/shared/lib/utils';
 import {
   createObject as createObjectService,
@@ -17,18 +18,17 @@ import {
   broadcastTransformStart,
   broadcastTransformEnd,
 } from '../services/objectsService';
-import { CreateObjectParams } from '../types';
 
 /**
  * Hook to manage canvas objects
  */
 export function useObjects(canvasId: string | null) {
   const { user } = useAuth();
-  const objects = useStore((state) => state.objects);
-  const setObjects = useStore((state) => state.setObjects);
-  const addObject = useStore((state) => state.addObject);
-  const updateObject = useStore((state) => state.updateObject);
-  const removeObject = useStore((state) => state.removeObject);
+  const objects = useObjectsStore((state) => state.objects);
+  const setObjects = useObjectsStore((state) => state.setObjects);
+  const addObject = useObjectsStore((state) => state.addObject);
+  const updateObject = useObjectsStore((state) => state.updateObject);
+  const removeObject = useObjectsStore((state) => state.removeObject);
   
   // Subscribe to objects on mount
   useEffect(() => {
@@ -39,6 +39,7 @@ export function useObjects(canvasId: string | null) {
     // Subscribe to Firestore for initial load and persistence
     const unsubscribeFirestore = subscribeToCanvasObjects(canvasId, (fetchedObjects) => {
       if (isSubscribed) {
+        console.log(`[Persistence] Loaded ${fetchedObjects.length} objects from Firestore for canvas: ${canvasId}`);
         const objectsMap = fetchedObjects.reduce((acc, obj) => {
           acc[obj.id] = obj;
           return acc;
@@ -85,11 +86,12 @@ export function useObjects(canvasId: string | null) {
       
       try {
         const object = await createObjectService(canvasId, newObject);
+        console.log(`[Persistence] Created object ${object.id} in Firestore`);
         // Optimistically add to local state
         addObject(object);
         return object;
       } catch (error) {
-        console.error('Failed to create object:', error);
+        console.error('[Persistence] Failed to create object:', error);
         throw error;
       }
     },
@@ -182,8 +184,9 @@ export function useObjects(canvasId: string | null) {
       
       try {
         await updateObjectService(canvasId, objectId, { position });
+        console.log(`[Persistence] Updated object ${objectId} position in Firestore:`, position);
       } catch (error) {
-        console.error('Failed to update object position:', error);
+        console.error('[Persistence] Failed to update object position:', error);
       }
     }, 300),
     [canvasId]

@@ -5,7 +5,7 @@ import {
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
-import { auth } from '@/shared/lib/firebase';
+import { getAuth } from '../lib/firebase';
 import { AuthFormData } from '../types';
 
 /**
@@ -18,6 +18,7 @@ export async function signUp(data: AuthFormData): Promise<void> {
     throw new Error('Email and password are required');
   }
   
+  const auth = getAuth();
   const userCredential = await createUserWithEmailAndPassword(auth, email, password);
   
   // Update display name if provided
@@ -38,6 +39,7 @@ export async function signIn(data: AuthFormData): Promise<void> {
     throw new Error('Email and password are required');
   }
   
+  const auth = getAuth();
   await signInWithEmailAndPassword(auth, email, password);
 }
 
@@ -45,6 +47,7 @@ export async function signIn(data: AuthFormData): Promise<void> {
  * Sign out the current user
  */
 export async function signOut(): Promise<void> {
+  const auth = getAuth();
   await firebaseSignOut(auth);
 }
 

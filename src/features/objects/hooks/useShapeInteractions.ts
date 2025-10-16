@@ -56,7 +56,6 @@ interface UseShapeInteractionsProps {
  * ```
  */
 export function useShapeInteractions<T extends Konva.Shape = Konva.Shape>({
-  objectId,
   isSelected,
   onSelect,
   onDragMove,

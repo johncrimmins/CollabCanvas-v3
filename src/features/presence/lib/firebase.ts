@@ -1,8 +1,6 @@
-// Firebase configuration and initialization
+// Presence feature Firebase configuration and initialization
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getDatabase, Database } from 'firebase/database';
+import { getDatabase as getDatabaseClient, Database } from 'firebase/database';
 
 // Firebase configuration from environment variables
 const firebaseConfig = {
@@ -18,8 +16,6 @@ const firebaseConfig = {
 // Initialize Firebase (singleton pattern)
 // Only initialize on client side to avoid SSR issues
 let app: FirebaseApp | undefined;
-let auth: Auth | undefined;
-let db: Firestore | undefined;
 let rtdb: Database | undefined;
 
 if (typeof window !== 'undefined') {
@@ -30,30 +26,14 @@ if (typeof window !== 'undefined') {
     app = getApps()[0];
   }
   
-  auth = getAuth(app);
-  db = getFirestore(app);
-  rtdb = getDatabase(app);
+  rtdb = getDatabaseClient(app);
 }
 
-// Export with type guards to ensure safe usage
-export { app, auth, db, rtdb };
+// Export RTDB instance (can be null during SSR)
+export { rtdb };
 
-// Helper functions to safely access Firebase services with error handling
-export function getFirebaseAuth(): Auth {
-  if (!auth) {
-    throw new Error('Firebase Auth not initialized. This should only be called on the client side.');
-  }
-  return auth;
-}
-
-export function getFirebaseDb(): Firestore {
-  if (!db) {
-    throw new Error('Firestore not initialized. This should only be called on the client side.');
-  }
-  return db;
-}
-
-export function getFirebaseRTDB(): Database {
+// Helper function to safely access Firebase RTDB with error handling
+export function getRTDB(): Database {
   if (!rtdb) {
     throw new Error('Firebase RTDB not initialized. This should only be called on the client side.');
   }

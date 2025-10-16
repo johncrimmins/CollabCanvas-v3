@@ -2,15 +2,15 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useStore } from '@/shared/lib/store';
+import { useCanvasStore } from '../lib/canvasStore';
 import { Point } from '@/shared/types';
 
 /**
  * Hook to manage canvas viewport and interactions
  */
 export function useCanvas() {
-  const viewport = useStore((state) => state.viewport);
-  const setViewport = useStore((state) => state.setViewport);
+  const viewport = useCanvasStore((state) => state.viewport);
+  const setViewport = useCanvasStore((state) => state.setViewport);
   
   // Pan the viewport
   const pan = useCallback(

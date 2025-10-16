@@ -10,9 +10,8 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { ref, set, onValue, remove } from 'firebase/database';
-import { db, rtdb } from '@/shared/lib/firebase';
-import { CanvasObject } from '@/shared/types';
-import { ObjectUpdate } from '../types';
+import { getFirestore, getRTDB } from '../lib/firebase';
+import { CanvasObject, ObjectUpdate, ShapePreview } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -33,6 +32,7 @@ export async function createObject(
   };
   
   // Persist to Firestore
+  const db = getFirestore();
   const objectRef = doc(db, 'canvases', canvasId, 'objects', id);
   await setDoc(objectRef, newObject);
   
@@ -55,6 +55,7 @@ export async function updateObject(
   updates: Partial<CanvasObject>
 ): Promise<void> {
   const now = Date.now();
+  const db = getFirestore();
   const objectRef = doc(db, 'canvases', canvasId, 'objects', objectId);
   
   // Update in Firestore
@@ -75,6 +76,8 @@ export async function updateObject(
  * Delete an object
  */
 export async function deleteObject(canvasId: string, objectId: string): Promise<void> {
+  const db = getFirestore();
+  const rtdb = getRTDB();
   const objectRef = doc(db, 'canvases', canvasId, 'objects', objectId);
   await deleteDoc(objectRef);
   
@@ -91,6 +94,7 @@ export async function deleteObject(canvasId: string, objectId: string): Promise<
  * Get all objects for a canvas
  */
 export async function getCanvasObjects(canvasId: string): Promise<CanvasObject[]> {
+  const db = getFirestore();
   const objectsRef = collection(db, 'canvases', canvasId, 'objects');
   const snapshot = await getDocs(objectsRef);
   
@@ -101,6 +105,7 @@ export async function getCanvasObjects(canvasId: string): Promise<CanvasObject[]
  * Get a single object
  */
 export async function getObject(canvasId: string, objectId: string): Promise<CanvasObject | null> {
+  const db = getFirestore();
   const objectRef = doc(db, 'canvases', canvasId, 'objects', objectId);
   const snapshot = await getDoc(objectRef);
   
@@ -113,6 +118,7 @@ export async function getObject(canvasId: string, objectId: string): Promise<Can
  * Broadcast object update via RTDB (for real-time sync)
  */
 async function broadcastObjectUpdate(canvasId: string, update: ObjectUpdate): Promise<void> {
+  const rtdb = getRTDB();
   const deltaRef = ref(rtdb, `deltas/${canvasId}/${update.id}`);
   await set(deltaRef, update);
   
@@ -135,6 +141,7 @@ export async function broadcastPositionUpdate(
   objectId: string,
   position: { x: number; y: number }
 ): Promise<void> {
+  const rtdb = getRTDB();
   const deltaRef = ref(rtdb, `deltas/${canvasId}/${objectId}`);
   await set(deltaRef, {
     id: objectId,
@@ -157,6 +164,7 @@ export async function broadcastTransformUpdate(
     rotation?: number;
   }
 ): Promise<void> {
+  const rtdb = getRTDB();
   const deltaRef = ref(rtdb, `deltas/${canvasId}/${objectId}`);
   await set(deltaRef, {
     id: objectId,
@@ -173,6 +181,7 @@ export async function broadcastTransformStart(
   objectId: string,
   userId: string
 ): Promise<void> {
+  const rtdb = getRTDB();
   const deltaRef = ref(rtdb, `deltas/${canvasId}/${objectId}`);
   await set(deltaRef, {
     id: objectId,
@@ -188,6 +197,7 @@ export async function broadcastTransformEnd(
   canvasId: string,
   objectId: string
 ): Promise<void> {
+  const rtdb = getRTDB();
   const deltaRef = ref(rtdb, `deltas/${canvasId}/${objectId}`);
   await set(deltaRef, {
     id: objectId,
@@ -203,6 +213,7 @@ export function subscribeToObjectUpdates(
   canvasId: string,
   callback: (update: ObjectUpdate) => void
 ): () => void {
+  const rtdb = getRTDB();
   const deltasRef = ref(rtdb, `deltas/${canvasId}`);
   
   const unsubscribe = onValue(deltasRef, (snapshot) => {
@@ -225,11 +236,49 @@ export function subscribeToCanvasObjects(
   canvasId: string,
   callback: (objects: CanvasObject[]) => void
 ): () => void {
+  const db = getFirestore();
   const objectsRef = collection(db, 'canvases', canvasId, 'objects');
   
   const unsubscribe = onSnapshot(objectsRef, (snapshot) => {
     const objects = snapshot.docs.map((doc) => doc.data() as CanvasObject);
     callback(objects);
+  });
+  
+  return unsubscribe;
+}
+
+/**
+ * Broadcast shape preview position (for creation mode)
+ * Shows other users where this user is about to place a shape
+ */
+export async function broadcastShapePreview(
+  canvasId: string,
+  preview: ShapePreview | null
+): Promise<void> {
+  const rtdb = getRTDB();
+  const previewRef = ref(rtdb, `shapePreviews/${canvasId}/${preview?.userId}`);
+  
+  if (preview) {
+    await set(previewRef, preview);
+  } else {
+    // Clear preview
+    await remove(previewRef);
+  }
+}
+
+/**
+ * Subscribe to shape previews from all users
+ */
+export function subscribeToShapePreviews(
+  canvasId: string,
+  callback: (previews: Record<string, ShapePreview>) => void
+): () => void {
+  const rtdb = getRTDB();
+  const previewsRef = ref(rtdb, `shapePreviews/${canvasId}`);
+  
+  const unsubscribe = onValue(previewsRef, (snapshot) => {
+    const previews = snapshot.val() || {};
+    callback(previews);
   });
   
   return unsubscribe;

@@ -1,8 +1,7 @@
 // Online users component - displays list of users on canvas
 'use client';
 
-import { PresenceUser } from '@/shared/types';
-import { generateUserColor, formatTimestamp } from '@/shared/lib/utils';
+import { PresenceUser, generateUserColor, formatTimestamp } from '../types';
 
 interface OnlineUsersProps {
   presence: Record<string, PresenceUser>;

@@ -3,7 +3,7 @@
 
 import { Rect, Transformer } from 'react-konva';
 import Konva from 'konva';
-import { CanvasObject } from '@/shared/types';
+import { CanvasObject } from '../types';
 import { useShapeInteractions } from '../hooks/useShapeInteractions';
 
 interface RectangleProps {

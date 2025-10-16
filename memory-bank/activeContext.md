@@ -20,7 +20,9 @@
 - [x] Add real-time drag broadcasting
 - [x] Add real-time transform broadcasting
 - [x] Refactor to DRY architecture
-- [ ] Deploy to Vercel
+- [x] Create deployment documentation and guides
+- [x] Add persistence debugging and verification
+- [ ] **NEXT: Deploy to Vercel** (ready - follow DEPLOYMENT.md)
 - [ ] Test with multiple concurrent users
 - [ ] Validate performance targets
 
@@ -33,6 +35,12 @@
 - Fixed Tailwind paths, Firebase SSR issues, and cn utility
 - Two shape types working: Rectangle and Circle
 - Canvas pan/zoom with proper cursor feedback
+- **Created comprehensive deployment documentation:**
+  - DEPLOYMENT.md - Step-by-step Vercel deployment guide
+  - PERSISTENCE_CHECK.md - Persistence verification and debugging
+  - PRE_DEPLOYMENT_CHECKLIST.md - Pre-flight checklist
+- **Added persistence debugging logs** for easier troubleshooting
+- Verified persistence architecture is correct (Firestore + RTDB)
 
 ## Next Steps: Deployment & Validation
 

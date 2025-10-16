@@ -13,9 +13,11 @@ interface CanvasProps {
   canvasId: string;
   tool?: 'select' | 'rectangle' | 'circle';
   children?: React.ReactNode;
+  onCanvasClick?: (position?: Point) => void;
+  onCursorMove?: (position: Point) => void;
 }
 
-export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
+export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onCursorMove }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -23,7 +25,7 @@ export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
   const [lastPos, setLastPos] = useState<Point | null>(null);
   const [isOverShape, setIsOverShape] = useState(false);
   
-  const { viewport, pan, zoom } = useCanvas();
+  const { viewport, pan, zoom, screenToCanvas } = useCanvas();
   const { cursors, broadcastCursor } = usePresence(canvasId);
   
   // Update dimensions on resize
@@ -60,7 +62,7 @@ export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
     [zoom]
   );
   
-  // Handle mouse down for panning
+  // Handle mouse down for panning, deselection, and shape placement
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Get pointer position relative to stage
@@ -70,8 +72,21 @@ export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
       const pointerPosition = stage.getPointerPosition();
       if (!pointerPosition) return;
       
-      // Check if clicking on a shape
+      // Convert screen coordinates to canvas coordinates
+      // (accounting for pan/zoom transformations)
+      const canvasPos = screenToCanvas(pointerPosition);
+      
+      // Check if clicking on a shape (use screen coords for intersection test)
       const clickedOnShape = stage.getIntersection(pointerPosition);
+      
+      // If clicking on empty canvas, trigger canvas click callback
+      if (e.button === 0 && !clickedOnShape) {
+        if (onCanvasClick) {
+          // For select tool, pass no position (for deselection)
+          // For shape tools, pass canvas coordinates (for placement)
+          onCanvasClick(tool !== 'select' ? canvasPos : undefined);
+        }
+      }
       
       // Allow panning if:
       // 1. Using select tool AND not clicking on a shape (left click)
@@ -87,30 +102,36 @@ export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
         e.preventDefault();
       }
     },
-    [tool]
+    [tool, onCanvasClick, screenToCanvas]
   );
   
-  // Handle mouse move for panning and cursor broadcasting
+  // Handle mouse move for panning, cursor broadcasting, and preview tracking
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const stage = stageRef.current;
-      const container = e.currentTarget as HTMLDivElement;
-      const rect = container.getBoundingClientRect();
       
-      const cursorPos: Point = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      };
-      
-      // Broadcast cursor position
-      broadcastCursor(cursorPos);
-      
-      // Check if hovering over a shape (for cursor style)
-      if (stage && tool === 'select' && !isPanning) {
+      // Get canvas coordinates for both cursor and shape preview
+      if (stage) {
         const pointerPosition = stage.getPointerPosition();
         if (pointerPosition) {
-          const hoveredShape = stage.getIntersection(pointerPosition);
-          setIsOverShape(!!hoveredShape);
+          // Convert screen coordinates to canvas coordinates
+          // (accounting for pan/zoom transformations)
+          const canvasPos = screenToCanvas(pointerPosition);
+          
+          // Broadcast cursor position in canvas coordinates
+          // Each user will convert to their own screen space for display
+          broadcastCursor(canvasPos);
+          
+          // Notify parent of cursor position in canvas coordinates
+          if (onCursorMove) {
+            onCursorMove(canvasPos);
+          }
+          
+          // Check if hovering over a shape (for cursor style)
+          if (tool === 'select' && !isPanning) {
+            const hoveredShape = stage.getIntersection(pointerPosition);
+            setIsOverShape(!!hoveredShape);
+          }
         }
       }
       
@@ -122,7 +143,7 @@ export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
         setLastPos({ x: e.clientX, y: e.clientY });
       }
     },
-    [isPanning, lastPos, pan, broadcastCursor, tool]
+    [isPanning, lastPos, pan, broadcastCursor, tool, onCursorMove, screenToCanvas]
   );
   
   // Handle mouse up
@@ -180,7 +201,7 @@ export function Canvas({ canvasId, tool = 'select', children }: CanvasProps) {
       
       {/* Render other users' cursors */}
       {Object.values(cursors).map((cursor) => (
-        <UserCursor key={cursor.userId} cursor={cursor} />
+        <UserCursor key={cursor.userId} cursor={cursor} viewport={viewport} />
       ))}
       
       {/* Zoom indicator */}

@@ -1,19 +1,28 @@
 // Canvas page - main collaborative canvas
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ProtectedRoute, UserProfile } from '@/features/auth';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ProtectedRoute, UserProfile, useAuthStore } from '@/features/auth';
 import { Canvas, CanvasToolbar } from '@/features/canvas';
-import { OnlineUsers } from '@/features/presence';
-import { ObjectRenderer, useObjects } from '@/features/objects';
-import { useStore } from '@/shared/lib/store';
+import { OnlineUsers, usePresenceStore } from '@/features/presence';
+import { ObjectRenderer, useObjects, broadcastShapePreview, subscribeToShapePreviews } from '@/features/objects';
+import { ShapePreview as ShapePreviewComponent } from '@/features/objects/components/ShapePreview';
+import type { ShapePreview as ShapePreviewType } from '@/features/objects/types';
+import { Point } from '@/shared/types';
+import { throttle } from '@/shared/lib/utils';
+
+// Tell Next.js not to prerender this page
+export const dynamic = 'force-dynamic';
 
 export default function CanvasPage() {
-  const user = useStore((state) => state.user);
-  const presence = useStore((state) => state.presence);
+  const user = useAuthStore((state) => state.user);
+  const presence = usePresenceStore((state) => state.presence);
   const [canvasId, setCanvasId] = useState<string | null>(null);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [tool, setTool] = useState<'select' | 'rectangle' | 'circle'>('select');
+  const [deselectTrigger, setDeselectTrigger] = useState(0);
+  const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
+  const [shapePreviews, setShapePreviews] = useState<Record<string, ShapePreviewType>>({});
   
   const { 
     objects, 
@@ -32,19 +41,88 @@ export default function CanvasPage() {
     setCanvasId(defaultCanvasId);
   }, []);
   
-  const handleCreateShape = async (type: 'rectangle' | 'circle') => {
+  // Subscribe to shape previews from other users
+  useEffect(() => {
     if (!canvasId) return;
     
-    // Create shape at center of viewport
+    const unsubscribe = subscribeToShapePreviews(canvasId, (previews) => {
+      setShapePreviews(previews);
+    });
+    
+    return unsubscribe;
+  }, [canvasId]);
+  
+  // Throttled function to broadcast shape preview
+  const throttledBroadcastPreview = useRef(
+    throttle(async (canvasId: string, preview: ShapePreviewType | null) => {
+      try {
+        await broadcastShapePreview(canvasId, preview);
+      } catch (error) {
+        console.error('Failed to broadcast shape preview:', error);
+      }
+    }, 16) // 60fps
+  ).current;
+  
+  // Broadcast shape preview when cursor moves in shape creation mode
+  useEffect(() => {
+    if (!canvasId || !user || tool === 'select' || !cursorPosition) {
+      // Clear preview if switching to select tool or no cursor position
+      if (canvasId && user && tool === 'select') {
+        broadcastShapePreview(canvasId, null).catch(console.error);
+      }
+      return;
+    }
+    
+    // Broadcast preview for rectangle or circle
+    // Position should match where the shape will be placed (centered on cursor)
+    const preview: ShapePreviewType = {
+      type: tool,
+      position: { x: cursorPosition.x - 50, y: cursorPosition.y - 50 },
+      width: 100,
+      height: 100,
+      fill: '#3B82F6',
+      userId: user.id,
+      userName: user.displayName || user.email || 'Anonymous',
+    };
+    
+    throttledBroadcastPreview(canvasId, preview);
+  }, [canvasId, user, tool, cursorPosition, throttledBroadcastPreview]);
+  
+  const handlePlaceShape = useCallback(async (position: Point) => {
+    if (!canvasId || tool === 'select') return;
+    
+    // Create shape at clicked position
     await createObject({
-      type,
-      x: 400,
-      y: 300,
+      type: tool,
+      x: position.x - 50, // Center the shape on cursor
+      y: position.y - 50,
       width: 100,
       height: 100,
       fill: '#3B82F6',
     });
-  };
+    
+    // Clear the preview
+    if (user) {
+      await broadcastShapePreview(canvasId, null);
+    }
+    
+    // Switch back to select tool after placing
+    setTool('select');
+  }, [canvasId, tool, createObject, user]);
+  
+  const handleCanvasClick = useCallback((position?: Point) => {
+    if (tool === 'select') {
+      // Increment trigger to deselect all objects
+      setDeselectTrigger(prev => prev + 1);
+    } else if (position) {
+      // Place the shape at the clicked position
+      handlePlaceShape(position);
+    }
+  }, [tool, handlePlaceShape]);
+  
+  const handleCursorMove = useCallback((position: Point) => {
+    setCursorPosition(position);
+  }, []);
   
   if (!canvasId) {
     return (
@@ -94,16 +172,13 @@ export default function CanvasPage() {
                 </button>
                 
                 <button
-                  onClick={() => {
-                    setTool('rectangle');
-                    handleCreateShape('rectangle');
-                  }}
+                  onClick={() => setTool('rectangle')}
                   className={`p-2 rounded-md transition-colors ${
                     tool === 'rectangle'
                       ? 'bg-blue-100 text-blue-700'
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
-                  title="Rectangle"
+                  title="Rectangle - Click to place"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -121,16 +196,13 @@ export default function CanvasPage() {
                 </button>
                 
                 <button
-                  onClick={() => {
-                    setTool('circle');
-                    handleCreateShape('circle');
-                  }}
+                  onClick={() => setTool('circle')}
                   className={`p-2 rounded-md transition-colors ${
                     tool === 'circle'
                       ? 'bg-blue-100 text-blue-700'
                       : 'hover:bg-gray-100 text-gray-700'
                   }`}
-                  title="Circle"
+                  title="Circle - Click to place"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -167,7 +239,12 @@ export default function CanvasPage() {
         
         {/* Main Canvas Area */}
         <div className="flex-1 relative">
-          <Canvas canvasId={canvasId} tool={tool}>
+          <Canvas 
+            canvasId={canvasId} 
+            tool={tool} 
+            onCanvasClick={handleCanvasClick}
+            onCursorMove={handleCursorMove}
+          >
             <ObjectRenderer
               objects={objects}
               onObjectUpdate={(objectId, updates) => {
@@ -187,7 +264,15 @@ export default function CanvasPage() {
               }}
               currentUserId={user?.id}
               presenceUsers={presence}
+              deselectTrigger={deselectTrigger}
             />
+            
+            {/* Render shape previews from all users (including our own) */}
+            {Object.entries(shapePreviews).map(([userId, preview]) => {
+              return (
+                <ShapePreviewComponent key={userId} preview={preview} />
+              );
+            })}
           </Canvas>
           
           {/* Floating Toolbar */}

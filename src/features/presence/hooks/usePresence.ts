@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useCallback, useRef } from 'react';
-import { useStore } from '@/shared/lib/store';
+import { usePresenceStore } from '../lib/presenceStore';
 import { useAuth } from '@/features/auth';
 import { throttle } from '@/shared/lib/utils';
 import { Point } from '@/shared/types';
@@ -20,10 +20,10 @@ import {
  */
 export function usePresence(canvasId: string | null) {
   const { user } = useAuth();
-  const setCursors = useStore((state) => state.setCursors);
-  const setPresence = useStore((state) => state.setPresence);
-  const cursors = useStore((state) => state.cursors);
-  const presence = useStore((state) => state.presence);
+  const setCursors = usePresenceStore((state) => state.setCursors);
+  const setPresence = usePresenceStore((state) => state.setPresence);
+  const cursors = usePresenceStore((state) => state.cursors);
+  const presence = usePresenceStore((state) => state.presence);
   
   // Throttled cursor update function (60fps = 16ms)
   const throttledUpdateCursor = useRef(

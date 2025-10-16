@@ -1,7 +1,8 @@
 // Presence service - handles real-time cursor and user presence via Firebase RTDB
 import { ref, set, onValue, onDisconnect, remove } from 'firebase/database';
-import { rtdb } from '@/shared/lib/firebase';
-import { Point, Cursor, PresenceUser } from '@/shared/types';
+import { getRTDB } from '../lib/firebase';
+import { Cursor, PresenceUser } from '../types';
+import { Point } from '@/shared/types';
 
 /**
  * Join a canvas session - mark user as online
@@ -12,6 +13,7 @@ export async function joinCanvas(
   userName: string,
   photoURL?: string | null
 ): Promise<void> {
+  const rtdb = getRTDB();
   const presenceRef = ref(rtdb, `presence/${canvasId}/${userId}`);
   
   const presenceData: PresenceUser = {
@@ -33,6 +35,7 @@ export async function joinCanvas(
  * Leave a canvas session - mark user as offline
  */
 export async function leaveCanvas(canvasId: string, userId: string): Promise<void> {
+  const rtdb = getRTDB();
   const presenceRef = ref(rtdb, `presence/${canvasId}/${userId}`);
   const cursorRef = ref(rtdb, `cursors/${canvasId}/${userId}`);
   
@@ -52,6 +55,7 @@ export async function updateCursor(
   userName: string,
   position: Point
 ): Promise<void> {
+  const rtdb = getRTDB();
   const cursorRef = ref(rtdb, `cursors/${canvasId}/${userId}`);
   
   const cursorData: Cursor = {
@@ -72,6 +76,7 @@ export function subscribeToCursors(
   canvasId: string,
   callback: (cursors: Record<string, Cursor>) => void
 ): () => void {
+  const rtdb = getRTDB();
   const cursorsRef = ref(rtdb, `cursors/${canvasId}`);
   
   const unsubscribe = onValue(cursorsRef, (snapshot) => {
@@ -90,6 +95,7 @@ export function subscribeToPresence(
   canvasId: string,
   callback: (presence: Record<string, PresenceUser>) => void
 ): () => void {
+  const rtdb = getRTDB();
   const presenceRef = ref(rtdb, `presence/${canvasId}`);
   
   const unsubscribe = onValue(presenceRef, (snapshot) => {
@@ -104,6 +110,7 @@ export function subscribeToPresence(
  * Update last seen timestamp (heartbeat)
  */
 export async function updateLastSeen(canvasId: string, userId: string): Promise<void> {
+  const rtdb = getRTDB();
   const lastSeenRef = ref(rtdb, `presence/${canvasId}/${userId}/lastSeen`);
   await set(lastSeenRef, Date.now());
 }

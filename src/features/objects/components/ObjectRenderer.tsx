@@ -1,8 +1,8 @@
 // Object renderer - renders all canvas objects
 'use client';
 
-import { useState } from 'react';
-import { CanvasObject } from '@/shared/types';
+import { useState, useEffect } from 'react';
+import { CanvasObject } from '../types';
 import { Rectangle } from './Rectangle';
 import { Circle } from './Circle';
 
@@ -15,6 +15,7 @@ interface ObjectRendererProps {
   onObjectTransformEnd?: (objectId: string) => void;
   currentUserId?: string;
   presenceUsers?: Record<string, { displayName: string }>;
+  deselectTrigger?: number; // Increment this to trigger deselection
 }
 
 export function ObjectRenderer({ 
@@ -26,8 +27,16 @@ export function ObjectRenderer({
   onObjectTransformEnd,
   currentUserId,
   presenceUsers = {},
+  deselectTrigger,
 }: ObjectRendererProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  
+  // Deselect when trigger changes
+  useEffect(() => {
+    if (deselectTrigger !== undefined) {
+      setSelectedId(null);
+    }
+  }, [deselectTrigger]);
   
   const handleSelect = (id: string) => {
     setSelectedId(id);

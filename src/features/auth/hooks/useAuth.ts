@@ -3,20 +3,27 @@
 
 import { useEffect } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { auth } from '@/shared/lib/firebase';
-import { useStore } from '@/shared/lib/store';
-import { User } from '@/shared/types';
+import { auth } from '../lib/firebase';
+import { useAuthStore } from '../lib/authStore';
+import { User } from '../types';
 
 /**
  * Hook to manage authentication state
  */
 export function useAuth() {
-  const user = useStore((state) => state.user);
-  const setUser = useStore((state) => state.setUser);
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
   
   useEffect(() => {
+    if (!auth) {
+      console.warn('[Auth] Firebase auth not initialized');
+      return;
+    }
+    
+    console.log('[Auth] Setting up auth state listener');
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
+        console.log('[Auth] User authenticated:', firebaseUser.email);
         const user: User = {
           id: firebaseUser.uid,
           email: firebaseUser.email || '',
@@ -25,6 +32,7 @@ export function useAuth() {
         };
         setUser(user);
       } else {
+        console.log('[Auth] User not authenticated');
         setUser(null);
       }
     });

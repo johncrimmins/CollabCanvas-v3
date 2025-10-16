@@ -4,7 +4,7 @@
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { signOut } from '../services/authService';
-import { generateUserColor } from '@/shared/lib/utils';
+import { generateUserColor } from '@/features/presence/types';
 
 export function UserProfile() {
   const { user } = useAuth();

@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { Circle as KonvaCircle, Transformer } from 'react-konva';
 import Konva from 'konva';
-import { CanvasObject } from '@/shared/types';
+import { CanvasObject } from '../types';
 import { useShapeInteractions } from '../hooks/useShapeInteractions';
 
 interface CircleProps {
