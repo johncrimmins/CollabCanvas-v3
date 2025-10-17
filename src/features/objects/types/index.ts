@@ -17,6 +17,11 @@ export interface CanvasObject {
   updatedAt: number;
   // Optional: tracks which user is currently transforming this object
   transformingBy?: string;
+  // Optional: for circles
+  radius?: number;
+  // Optional: for text objects
+  text?: string;
+  fontSize?: number;
 }
 
 /**

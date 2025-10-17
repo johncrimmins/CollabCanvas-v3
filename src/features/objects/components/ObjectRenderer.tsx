@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { CanvasObject } from '../types';
 import { Rectangle } from './Rectangle';
 import { Circle } from './Circle';
+import { Text } from './Text';
 
 interface ObjectRendererProps {
   objects: CanvasObject[];
@@ -107,6 +108,24 @@ export function ObjectRenderer({
         if (object.type === 'circle') {
           return (
             <Circle
+              key={object.id}
+              object={object}
+              isSelected={isSelected}
+              onSelect={() => handleSelect(object.id)}
+              onDragMove={(pos) => handleDragMove(object.id, pos)}
+              onDragEnd={(pos) => handleDragEnd(object.id, pos)}
+              onTransformStart={() => handleTransformStart(object.id)}
+              onTransform={(updates) => handleTransform(object.id, updates)}
+              onTransformEnd={(updates) => handleTransformEnd(object.id, updates)}
+              isBeingTransformedByOther={isBeingTransformedByOther}
+              transformingUserName={transformingUserName}
+            />
+          );
+        }
+        
+        if (object.type === 'text') {
+          return (
+            <Text
               key={object.id}
               object={object}
               isSelected={isSelected}

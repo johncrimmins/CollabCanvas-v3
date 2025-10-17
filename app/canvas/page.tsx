@@ -8,6 +8,7 @@ import { OnlineUsers, usePresenceStore } from '@/features/presence';
 import { ObjectRenderer, useObjects, broadcastShapePreview, subscribeToShapePreviews } from '@/features/objects';
 import { ShapePreview as ShapePreviewComponent } from '@/features/objects/components/ShapePreview';
 import type { ShapePreview as ShapePreviewType } from '@/features/objects/types';
+import { AIChat } from '@/features/ai-agent';
 import { Point } from '@/shared/types';
 import { throttle } from '@/shared/lib/utils';
 
@@ -19,6 +20,7 @@ export default function CanvasPage() {
   const presence = usePresenceStore((state) => state.presence);
   const [canvasId, setCanvasId] = useState<string | null>(null);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
+  const [showAIChat, setShowAIChat] = useState(false);
   const [tool, setTool] = useState<'select' | 'rectangle' | 'circle'>('select');
   const [deselectTrigger, setDeselectTrigger] = useState(0);
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
@@ -42,6 +44,11 @@ export default function CanvasPage() {
     const defaultCanvasId = 'default-canvas';
     setCanvasId(defaultCanvasId);
   }, []);
+  
+  // Handle AI chat toggle
+  const handleAIChatToggle = useCallback(() => {
+    setShowAIChat(!showAIChat);
+  }, [showAIChat]);
   
   // Subscribe to shape previews from other users
   useEffect(() => {
@@ -291,6 +298,21 @@ export default function CanvasPage() {
             
             <div className="flex items-center gap-4">
               <button
+                onClick={handleAIChatToggle}
+                className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                  showAIChat
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+                title="AI Assistant"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span className="text-sm font-medium">AI</span>
+              </button>
+              
+              <button
                 onClick={() => setShowOnlineUsers(!showOnlineUsers)}
                 className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-md transition-colors"
               >
@@ -353,6 +375,18 @@ export default function CanvasPage() {
           {showOnlineUsers && (
             <div className="absolute top-4 right-4">
               <OnlineUsers presence={presence} currentUserId={user?.id} />
+            </div>
+          )}
+          
+          {/* AI Chat Panel */}
+          {showAIChat && user && canvasId && (
+            <div className="absolute top-4 right-4 w-96 max-w-full">
+              <AIChat
+                canvasId={canvasId}
+                userId={user.id}
+                userName={user.displayName || user.email || 'Anonymous'}
+                onClose={() => setShowAIChat(false)}
+              />
             </div>
           )}
         </div>
