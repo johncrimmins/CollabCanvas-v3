@@ -1,27 +1,12 @@
-# CollabCanvas
+# The LookBook
 
 ## Project Overview
 
-CollabCanvas is a real-time collaboration app enabling users to login, create and manipulate shapes with tools and AI, and collaborate with each other on a shared canvas in real time.
+The LookBook is a real-time collaboration app purpose-built for models, photographers, and stylists to plan photoshoots together. Users can create and manipulate shapes with tools and AI, collaborating in real-time on shared LookBooks. Each LookBook is a workspace where creative teams prepare the visual "looks" they want to achieve before getting on set to shoot.
 
-First build the core collaborative canvas with real-time sync for the MVP. Then layer on an AI agent that manipulates the canvas through natural language.
 
-### MVP Requirements
 
-To pass the MVP checkpoint, you must have:
-
-- [ ]  Basic canvas with pan/zoom  
-- [ ]  At least one shape type (rectangle, circle, or text)  
-- [ ]  Ability to create and move objects  
-- [ ]  Real-time sync between 2+ users  
-- [ ]  Multiplayer cursors with name labels  
-- [ ]  Presence awareness (who’s online)  
-- [ ]  User authentication (users have accounts/names)  
-- [ ]  Deployed and publicly accessible
-
-The focus is on collaborative infrastructure. The MVP isn’t about features — it’s about proving your foundation is solid. A simple canvas with bulletproof multiplayer is worth more than a feature-rich canvas with broken sync.
-
-### Example Architecture
+### Architecture
 
 At minimum, you should have:
 
@@ -31,11 +16,13 @@ At minimum, you should have:
 
 ## Core Collaborative Canvas
 
-### Canvas Features
+### LookBook Features
 
-Your canvas needs a large workspace with a smooth pan and zoom. It doesn’t need to be truly infinite, but should feel spacious. Support basic shapes — rectangles, circles, and lines with solid colors. Add text layers with basic formatting.
+The LookBook workspace is a large canvas with smooth pan and zoom functionality, featuring a professional grey background. At the center is a fixed 1000x1000px white square called a "Look" - this is where users compose their primary visual concepts. Users can add additional Looks (Look 2, Look 3, etc.) which appear 1000px below each previous Look, each numbered with black text in the top-left corner.
 
-Users should be able to transform objects (move, resize, rotate). Include selection for single and multiple objects (shift-click or drag-to-select). Add layer management and basic operations like delete and duplicate.
+The workspace supports basic shapes (rectangles, circles, arrows) and text layers with formatting options (Header, Subheading, Paragraph). Objects can exist anywhere in the LookBook workspace - the grey area around Looks serves as a staging area where designers can organize elements before swapping them into a Look to visualize the composition.
+
+Users can transform objects (move, resize, rotate), select single and multiple objects (ctrl-click for multi-select), manage layers with visibility controls, and perform operations like duplicate, delete, copy, and paste.
 
 ### Real-Time Collaboration 
 
@@ -125,22 +112,4 @@ Recommended:
 * Frontend: React with Konva.js
 * AI Integration: LangChain with OpenAI model
 * Deployment: Vercel 
-
-## Build Strategy
-
-### Start with the Hard Part
-
-Multiplayer sync is the hardest and most important part.  
-Get two cursors syncing → objects syncing → handle conflicts → persist state.  
-Only after this is solid should you add shapes, transformations, and AI.
-
-### Build Vertically
-
-Finish one layer at a time:
-
-1. Multiplayer Cursor sync  
-2. Multiplayer Object sync  
-3. Transformations  
-4. Basic AI commands  
-5. Complex AI commands
 

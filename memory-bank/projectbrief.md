@@ -1,50 +1,68 @@
-# Project Brief: CollabCanvas v3
+# Project Brief: The LookBook
 
 ## Project Overview
-**Project Name:** CollabCanvas v3  
-**Timeline:** Week 1 MVP, then AI Agent layer  
-**Status:** Scaffolding Phase
+**Project Name:** The LookBook  
+**Timeline:** MVP Complete ✅ → Enhancement Phases (1-4)  
+**Status:** Rebrand & Feature Enhancement Phase
 
 ## Core Purpose
-CollabCanvas is a real-time collaboration app enabling users to login, create and manipulate shapes with tools and AI, and collaborate with each other on a shared canvas in real time.
+The LookBook is a real-time collaboration app purpose-built for models, photographers, and stylists to plan photoshoots together. Creative teams collaborate on shared LookBooks (workspaces), using shapes, text, and AI to visualize and refine the aesthetic they want to achieve before getting on set.
 
-**Build Strategy:** First build the core collaborative canvas with real-time sync for the MVP. Then layer on an AI agent that manipulates the canvas through natural language.
+**Build Strategy:** MVP foundation complete with real-time sync and AI agent. Now enhancing with professional features (multi-LookBook management, advanced object manipulation, AI improvements) for production-ready photoshoot planning platform.
 
 ## Primary Goals
 1. **Bulletproof Multiplayer Sync** - Sub-50ms cursor sync, sub-100ms object sync
 2. **Solid Foundation** - Collaborative infrastructure that scales cleanly to AI features
 3. **Production Ready** - Deployed, publicly accessible, supporting 5+ concurrent users
 
-## MVP Requirements (Week 1 Checkpoint)
-- [ ] Basic canvas with pan/zoom
-- [ ] At least one shape type (rectangle, circle, or text)
-- [ ] Ability to create and move objects
-- [ ] Real-time sync between 2+ users
-- [ ] Multiplayer cursors with name labels
-- [ ] Presence awareness (who's online)
-- [ ] User authentication (users have accounts/names)
-- [ ] Deployed and publicly accessible
+## MVP Requirements (Week 1 Checkpoint) - ✅ COMPLETE
+- [x] Basic canvas with pan/zoom
+- [x] Three shape types (rectangle, circle, text)
+- [x] Ability to create and move objects
+- [x] Real-time sync between 2+ users
+- [x] Multiplayer cursors with name labels
+- [x] Presence awareness (who's online)
+- [x] User authentication (users have accounts/names)
+- [x] Deployed and publicly accessible
+- [x] AI Agent with 8+ command types (LangChain + OpenAI)
+- [x] Database security rules (authentication required)
 
-## Key Requirements
+## Enhancement Roadmap
 
-### Phase 1: Core Collaborative Infrastructure (MVP)
-- Sub-100ms object sync, Sub-50ms cursor sync
-- Conflict resolution (last-write-wins documented)
-- Persistence & reconnection handling
-- Clean connection status indicators
+### Phase 1: LookBook Canvas Improvements ✅ COMPLETE (MVP)
+- Sub-100ms object sync, Sub-50ms cursor sync ✅
+- Conflict resolution (last-write-wins) ✅
+- Persistence & reconnection handling ✅
+- AI Agent with 8+ command types ✅
 
-### Phase 2: AI Canvas Agent (Post-MVP)
-- 8+ distinct command types (creation, manipulation, layout, complex)
-- Sub-2 second response time
-- Multi-step operation planning
-- Shared AI state across all users
+### Phase 1: Object Manipulation Features (Current Priority)
+- Right-click context menu for property editing
+- Duplicate object via objectsService
+- Undo/redo with keyboard shortcuts (Ctrl+Z/Y)
+- Copy/paste with keyboard shortcuts (Ctrl+C/V)
+- Layer management panel with visibility toggles
+- Multi-object selection (Ctrl+click)
 
-### Phase 3: Advanced Features (Future)
-- Undo/redo with keyboard shortcuts
-- Object grouping/ungrouping
-- Layers panel with drag-to-reorder
-- Alignment tools
-- AI Agent advanced commands / improvements
+### Phase 2: Multi-LookBook Platform
+- My LookBooks feature (create, save, rename, delete LookBooks)
+- LookBook sharing (Owner vs Designer roles)
+- Text formatting (Header, Subheading, Paragraph presets)
+- Repository-style LookBook management page
+
+### Phase 3: AI Agent Enhancements
+- Bulk creation (up to 100 shapes instantly)
+- Space elements evenly (equal distribution)
+- Arrange horizontally/vertically (alignment layouts)
+- Create styleguide (visual guidelines panel)
+- Multi-user AI testing & validation
+- Chat UX improvements (2-line input, auto-expand)
+
+### Phase 4: Production Readiness
+- Security hardening
+- Network resilience (disconnect/reconnect handling)
+- Conflict resolution documentation
+- UX improvements (design polish)
+- Comprehensive testing (5+ users, 100+ objects)
 
 ## Success Criteria
 
@@ -72,35 +90,31 @@ CollabCanvas is a real-time collaboration app enabling users to login, create an
 - **Scalability:** Must support 5+ concurrent users minimum
 - **Architecture:** Vertical slicing by feature for clean separation
 
-## Scope
+## LookBook Concept
 
-### In Scope (MVP)
-- User authentication (Firebase Auth)
-- Real-time cursor sync (Firebase RTDB)
-- Real-time object sync (Firebase RTDB + Firestore persistence)
-- User presence awareness
-- Basic canvas with pan/zoom (Konva.js)
-- At least one shape type with move capability
-- Connection status indicators
-- Deployment (Vercel)
+### Visual Structure
+- **LookBook Workspace:** Grey background canvas with pan/zoom (entire workspace)
+- **Look:** Fixed 1000x1000px white square in center for composing visual concepts
+  - Multiple Looks can exist (Look 1, Look 2, etc.)
+  - Numbered with black text in top-left corner
+  - Spaced 1000px apart vertically
+  - Purely visual guide (not a constraint)
+- **Staging Area:** Grey workspace around Looks where objects can be organized
 
-### In Scope (Post-MVP)
-- AI Agent with LangChain + OpenAI
-- 8+ command types (creation, manipulation, layout, complex)
-- Multi-step complex operations
-- LangSmith observability
-- Additional shape types (rectangles, circles, text, lines)
-- Transform operations (resize, rotate)
-- Multi-select and layer management
+### Target Users
+- Models
+- Photographers
+- Stylists
+- Creative directors
+- Executive team members
 
-### Out of Scope (Future)
-- Undo/redo
-- Object grouping
-- Layers panel
-- Alignment tools
-- Auto-layout
-- Agent enhancements
+### Use Case
+Creative teams use LookBooks to plan photoshoots before getting on set. They collaboratively build visual concepts, experiment with compositions, and define the aesthetic direction for the shoot.
+
+### Roles
+- **Owner:** Creates LookBook, full permissions (add/remove Designers, rename, delete)
+- **Designer:** Added collaborator, can edit objects but cannot manage LookBook or users
 
 ---
-*Last Updated: 2025-10-16*
+*Last Updated: 2025-10-18*
 

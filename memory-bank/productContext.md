@@ -1,23 +1,26 @@
-# Product Context: CollabCanvas v3
+# Product Context: The LookBook
 
 ## Why This Exists
-CollabCanvas enables teams to collaborate on visual design and planning in real-time with the power of AI assistance. It solves the problem of disconnected design workflows and brings natural language control to canvas manipulation.
+The LookBook enables photoshoot creative teams (models, photographers, stylists) to collaboratively plan shoots in real-time with AI assistance. It solves the problem of disconnected pre-production workflows and brings natural language control to visual planning, helping teams align on aesthetic direction before getting on set.
 
 ## Problems Solved
 
-1. **Multiplayer Design Collaboration**
-   - Traditional design tools lack real-time collaboration infrastructure
-   - Users need to see each other's cursors and edits instantly
-   - Conflict resolution when multiple people edit simultaneously
+1. **Photoshoot Pre-Production Collaboration**
+   - Creative teams work in silos before shoots (mood boards, sketches, scattered references)
+   - No shared workspace to visualize and refine "looks" together
+   - Difficult to align on aesthetic direction without physical meeting
+   - Traditional design tools aren't purpose-built for photoshoot planning
 
-2. **Complex Canvas Manipulation**
-   - Creating layouts manually is time-consuming
-   - Repetitive positioning and alignment tasks
-   - AI agent allows natural language commands to manipulate canvas
+2. **Visual Concept Development**
+   - Creating mood boards and layout concepts manually is time-consuming
+   - Repetitive positioning and organization of visual elements
+   - Hard to experiment with different compositions quickly
+   - AI agent allows natural language commands to build visual concepts rapidly
 
-3. **State Persistence & Reliability**
+3. **State Persistence & Multi-Project Management**
    - Work shouldn't be lost on disconnects
-   - Canvas state must persist even when all users leave
+   - Teams need separate LookBooks for different shoots
+   - Need to share LookBooks with different collaborators per project
    - Reconnection should be seamless and automatic
 
 ## How It Works
@@ -57,26 +60,30 @@ CollabCanvas enables teams to collaborate on visual design and planning in real-
 ## User Experience Goals
 
 ### Target Users
-- Design teams collaborating on visual projects
-- Product teams doing planning and wireframing
-- Anyone needing real-time visual collaboration
-- Users wanting to control design tools with natural language
+- **Models:** Visual planning, mood board creation, look composition
+- **Photographers:** Shot planning, lighting concepts, composition layouts
+- **Stylists:** Color palette development, styling direction, outfit concepts
+- **Creative Directors:** Overall aesthetic vision, team alignment, shoot planning
+- **Executive Team:** Review and approve shoot concepts before production
 
-### User Journey (MVP)
+### User Journey (Current - Post-MVP)
 1. User signs in with Firebase Auth
-2. Lands on canvas with smooth pan/zoom
-3. Sees other users' cursors moving in real-time
-4. Creates shapes that instantly appear for all users
-5. Drags objects around with zero lag
-6. Refreshes page → returns to exact canvas state
-7. Collaborates seamlessly with 5+ users
+2. Lands on "My LookBooks" page (repository view) - **Phase 2 feature**
+3. Creates new LookBook or opens existing one
+4. Sees LookBook workspace: grey background with white Look square in center
+5. Sees other Designers' cursors moving in real-time
+6. Creates shapes, text, and uses AI to build visual concepts
+7. Uses AI: "Create 50 color swatches in a grid" → Shapes appear instantly
+8. Shares LookBook with team members (adds Designers) - **Phase 2 feature**
+9. Refreshes page → returns to exact LookBook state
+10. Collaborates seamlessly with 5+ Designers simultaneously
 
-### User Journey (With AI Agent)
-1. Types "Create a login form" in AI chat
-2. Sees AI plan the steps (username field, password field, submit button)
-3. Watches elements appear on canvas in real-time
-4. All collaborators see the same AI-generated results
-5. Can refine with follow-up commands: "Make it larger"
+### User Journey (Enhanced - Future Phases)
+1. Selects multiple objects → Uses AI: "Space these evenly" → Perfect alignment
+2. Right-clicks object → Edits color/size directly - **Phase 1 feature**
+3. Creates styleguide with AI → Team sees visual guidelines at top of LookBook
+4. Uses Ctrl+Z to undo mistakes - **Phase 1 feature**
+5. Manages layers panel to show/hide elements - **Phase 1 feature**
 
 ### Design Principles
 1. **Performance First:** Sub-50ms cursor sync, sub-100ms object sync
@@ -87,10 +94,16 @@ CollabCanvas enables teams to collaborate on visual design and planning in real-
 
 ## Value Proposition
 
-**For MVP:** A rock-solid collaborative canvas that proves the multiplayer infrastructure works flawlessly. Simple but bulletproof beats feature-rich but broken.
+**For Creative Teams:** The LookBook is the first real-time collaborative platform purpose-built for photoshoot planning. Models, photographers, and stylists can work together on shared visual concepts with AI assistance, creating professional look boards that align the entire team before getting on set.
 
-**With AI Agent:** The first real-time collaborative canvas that responds to natural language commands, making complex layouts and repetitive tasks effortless while maintaining perfect sync across all users.
+**Key Differentiators:**
+- Purpose-built for photoshoot creative workflows (not generic design tool)
+- Real-time collaboration with <100ms sync
+- AI agent that understands photoshoot vocabulary and creates visual elements instantly
+- Multi-LookBook management (separate projects for different shoots)
+- Role-based sharing (Owner vs Designer permissions)
+- Professional visual hierarchy (Looks, staging areas, styleguides)
 
 ---
-*Last Updated: 2025-10-16*
+*Last Updated: 2025-10-18*
 

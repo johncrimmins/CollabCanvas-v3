@@ -1,8 +1,21 @@
-# Active Context: CollabCanvas v3
+# Active Context: The LookBook
 
 ## Current Focus
-**Phase:** AI Agent Tool Consolidation - COMPLETE ✅  
+**Phase:** Rebrand & Feature Planning - Phase 1-3 PRDs Complete ✅  
 **Date:** 2025-10-18
+
+### Latest Achievement
+- **Rebrand to The LookBook** ✅
+  - Updated overview.md with new project description and terminology
+  - Created rebrand-and-feature-roadmap.md (comprehensive feature plan)
+  - Defined Looks concept (1000x1000px white squares, grey staging area)
+  - Defined roles (Owner vs Designer)
+  - Updated target users (models, photographers, stylists)
+
+- **15 Feature PRDs Created** ✅
+  - Phase 1: 6 PRDs (object manipulation features)
+  - Phase 2: 3 PRDs (multi-LookBook platform)
+  - Phase 3: 6 PRDs (AI enhancements)
 
 ### Testing Results
 - **7 out of 8 tests PASSED** ✅
@@ -45,6 +58,14 @@
 - [ ] Test with multiple concurrent users
 
 ## Recent Changes
+- **Deployment Build Fixes ✅** (2025-10-18)
+  - Fixed TypeScript error: Removed unused `ToolExecutionContext` import in `simpleAgentService.ts`
+  - Fixed React Hook warning: Added missing `objects` dependency in `useAIAgent.ts`
+  - Fixed React Hook warning: Added missing `onArrowMouseDown` dependency in `Canvas.tsx`
+  - Fixed Next.js warning: Replaced `<img>` with `<Image />` in `UserProfile.tsx`
+  - Fixed Next.js warning: Replaced `<img>` with `<Image />` in `OnlineUsers.tsx`
+  - All 5 files committed and pushed to GitHub
+  - Build now passes successfully with zero errors/warnings
 - **AI Agent Tool Consolidation Complete ✅**
 - Consolidated 10 tools into 2 core tools: getCanvasState and canvasAction
 - canvasAction supports 5 operation types: create, update, delete, duplicate, arrange
@@ -64,53 +85,34 @@
 - Three shape types working: Rectangle, Circle, and Text
 - Canvas pan/zoom with proper cursor feedback
 
-## Next Steps: Deployment & Validation
+## Next Steps: Phase 1 Implementation
 
-### 1. Deployment (Current Priority) ✨
-- **Deploy to Vercel** - Push to production
-- **Configure environment variables** - Set up Firebase prod credentials
-- **Test public URL** - Ensure app loads correctly
-- **Monitor initial performance** - Check for any production issues
+### Ready to Build: Phase 1 Features (Canvas Improvements)
+1. **Duplicate Object** - Add to objectsService.ts, Ctrl+D shortcut
+2. **Copy/Paste** - Clipboard state, Ctrl+C/V shortcuts
+3. **Multi-Object Selection** - Ctrl+click, foundation for layers and AI
+4. **Right-Click Context Menu** - Property editor, common actions
+5. **Layer Management Panel** - Sidebar with visibility toggles
+6. **Undo/Redo** - History stack, Ctrl+Z/Y shortcuts
 
-### 2. Multi-User Testing (High Priority)
-- **Test with 2+ concurrent users** - Open multiple browser windows/devices
-- **Validate cursor sync** - Should be <50ms latency
-- **Validate object sync** - Should be <100ms latency
-- **Test transform sync** - Verify resize/rotate appear smoothly
-- **Check visual feedback** - Opacity changes when others transform
-- **Test persistence** - Refresh and verify objects persist
+**Dependencies:** All Phase 1 features work with current single-canvas architecture
 
-### 3. Performance Benchmarking (High Priority)
-- **Measure cursor latency** - Use console timestamps
-- **Measure object sync latency** - Validate <100ms target
-- **Test with 500+ objects** - Verify 60 FPS maintained
-- **Test with 5+ users** - Validate scalability target
-- **Monitor Firebase usage** - Check RTDB and Firestore quotas
+### Future: Phase 2 Features (Multi-LookBook Platform)
+1. **My LookBooks** - Repository page, CRUD operations, routing changes
+2. **LookBook Sharing** - Add Designers, Owner/Designer permissions
+3. **Text Formatting** - Header/Subheading/Paragraph presets
 
-### 4. Security Hardening (Before Public Launch)
-- **Update Firestore security rules** - Require authentication
-- **Update RTDB security rules** - User-specific access only
-- **Test with Firebase Emulator** - Validate rules work correctly
-- **Deploy security rules** - Push to production Firebase
-- **Verify authenticated-only access** - Test with unauthenticated user
+**Dependencies:** Requires data model changes (LookBook metadata, new routing)
 
-### 5. AI Agent Feature ✅ COMPLETE
-- ✅ Direct OpenAI function calling (no agent executor)
-- ✅ Proper JSON Schema format for all tools
-- ✅ Client-side execution with authenticated Firebase API
-- ✅ Tool execution confirmed working
-- ✅ LangSmith observability enabled
-- ✅ AI chat UI with message history
-- ✅ OpenAI API key management (env var)
-- ✅ Text shape support for complex layouts
-- ✅ **2-TOOL ARCHITECTURE**:
-  - getCanvasState: Query current canvas objects with IDs
-  - canvasAction: Unified tool with 5 operations (create, update, delete, duplicate, arrange)
-- ✅ ID-based targeting for reliable manipulation
-- ✅ Color translation for natural language responses
-- ✅ TypeScript compilation verified (no errors)
-- **Status**: Consolidated architecture ready for testing
-- **Next**: User testing with 2-tool workflow
+### Future: Phase 3 Features (AI Enhancements)
+1. **AI Bulk Creation** - Up to 100 shapes instantly
+2. **AI Space Evenly** - Equal distribution of selected objects
+3. **AI Arrange Direction** - Horizontal/vertical layouts
+4. **AI Create Styleguide** - Visual guidelines panel
+5. **AI Multi-User Testing** - Validate concurrent AI usage
+6. **AI Chat UX** - 2-line input, auto-expand
+
+**Dependencies:** Requires multi-select (Phase 1), text formatting (Phase 2)
 
 ## Active Decisions
 
@@ -144,7 +146,7 @@
 - **Deployment:** Ready for Vercel, just needs environment setup
 
 ## Blockers
-None - AI Agent feature working and tested successfully
+None - All deployment issues resolved, AI Agent feature working and tested successfully
 
 ## Notes
 - **MVP Complete:** All 5 core features functional
@@ -156,6 +158,37 @@ None - AI Agent feature working and tested successfully
 - **Performance Targets:** Need production validation with concurrent users
 - **Next Phase:** Test AI Agent → Validate Performance → Polish → Advanced Features
 
+## Feature PRDs Created
+
+### Phase 1: Object Manipulation (6 PRDs)
+- ✅ prd-duplicate-object.md
+- ✅ prd-copy-paste.md
+- ✅ prd-multi-object-selection.md
+- ✅ prd-right-click-context-menu.md
+- ✅ prd-layer-management-panel.md
+- ✅ prd-undo-redo.md
+
+### Phase 2: Multi-LookBook Platform (3 PRDs)
+- ✅ prd-my-lookbooks.md (foundational - data model changes)
+- ✅ prd-lookbook-sharing.md (Owner/Designer roles)
+- ✅ prd-text-formatting.md (Header/Subheading/Paragraph)
+
+### Phase 3: AI Enhancements (6 PRDs)
+- ✅ prd-ai-bulk-creation.md (up to 100 shapes, instant rendering)
+- ✅ prd-ai-space-evenly.md (equal spacing distribution)
+- ✅ prd-ai-arrange-direction.md (horizontal/vertical layouts)
+- ✅ prd-ai-create-styleguide.md (visual guidelines panel)
+- ✅ prd-ai-multi-user-testing.md (concurrent usage validation)
+- ✅ prd-ai-chat-ux.md (2-line input, auto-expand)
+
+**All PRDs align with:**
+- Existing vertical slicing architecture
+- LangChain/LangGraph ReAct agent pattern
+- 2-tool system (getCanvasState + canvasAction)
+- ID-based targeting
+- Client-side execution
+- Firebase real-time sync
+
 ---
-*Last Updated: 2025-10-17*
+*Last Updated: 2025-10-18*
 
