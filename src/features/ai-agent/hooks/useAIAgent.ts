@@ -134,11 +134,11 @@ async function executeAction(
         
         // Add type-specific fields
         if (shape.type === 'circle') {
-          (objectParams as any).radius = shape.dimensions?.radius ?? 50;
+          objectParams.radius = shape.dimensions?.radius ?? 50;
         }
         if (shape.type === 'text') {
-          (objectParams as any).text = shape.style?.text ?? 'Text';
-          (objectParams as any).fontSize = shape.style?.fontSize ?? 16;
+          objectParams.text = shape.style?.text ?? 'Text';
+          objectParams.fontSize = shape.style?.fontSize ?? 16;
         }
         
         await createObject(canvasId, objectParams);
@@ -173,7 +173,7 @@ async function executeAction(
         if (updates?.dimensions) {
           if (updates.dimensions.width !== undefined) updateData.width = updates.dimensions.width;
           if (updates.dimensions.height !== undefined) updateData.height = updates.dimensions.height;
-          if (updates.dimensions.radius !== undefined) (updateData as any).radius = updates.dimensions.radius;
+          if (updates.dimensions.radius !== undefined) updateData.radius = updates.dimensions.radius;
         }
         
         // Handle rotation update (additive)
@@ -184,7 +184,7 @@ async function executeAction(
         // Handle scale update (multiplicative)
         if (updates?.scale !== undefined) {
           if (targetObject.type === 'circle' && targetObject.radius) {
-            (updateData as any).radius = targetObject.radius * updates.scale;
+            updateData.radius = targetObject.radius * updates.scale;
           } else {
             if (targetObject.width) updateData.width = targetObject.width * updates.scale;
             if (targetObject.height) updateData.height = targetObject.height * updates.scale;
@@ -193,8 +193,8 @@ async function executeAction(
         
         // Handle style updates
         if (updates?.fill !== undefined) updateData.fill = updates.fill;
-        if (updates?.fontSize !== undefined) (updateData as any).fontSize = updates.fontSize;
-        if (updates?.text !== undefined) (updateData as any).text = updates.text;
+        if (updates?.fontSize !== undefined) updateData.fontSize = updates.fontSize;
+        if (updates?.text !== undefined) updateData.text = updates.text;
         
         await updateObject(canvasId, targetObject.id, updateData);
         console.log('[executeAction] canvasAction UPDATE: updated object', targetObject.id, updateData);
