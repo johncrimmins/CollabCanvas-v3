@@ -126,14 +126,6 @@ class SimpleAgentService {
     // Reset captured actions
     this.capturedActions = [];
     
-    // Create tool execution context
-    // Tool execution context (for reference)
-    const _toolContext: ToolExecutionContext = {
-      canvasId: context.canvasId,
-      userId: context.userId,
-      userName: context.userName,
-    };
-    
     // ═══════════════════════════════════════════════════════════════════════
     // ID-BASED TARGETING PATTERN - Phase 1: Query Canvas State
     // ═══════════════════════════════════════════════════════════════════════
