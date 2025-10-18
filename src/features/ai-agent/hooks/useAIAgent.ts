@@ -607,7 +607,7 @@ export function useAIAgent({ canvasId, userId, userName }: UseAIAgentProps) {
         setProcessing(false);
       }
     },
-    [canvasId, userId, userName, objects.length, addMessage, setProcessing, setError, clearError]
+    [canvasId, userId, userName, objects, addMessage, setProcessing, setError, clearError]
   );
   
   return {

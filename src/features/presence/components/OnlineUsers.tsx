@@ -1,6 +1,7 @@
 // Online users component - displays list of users on canvas
 'use client';
 
+import Image from 'next/image';
 import { PresenceUser, generateUserColor, formatTimestamp } from '../types';
 
 interface OnlineUsersProps {
@@ -33,13 +34,15 @@ export function OnlineUsers({ presence, currentUserId }: OnlineUsersProps) {
             >
               {user.photoURL ? (
                 <div
-                  className="w-8 h-8 rounded-full ring-2 overflow-hidden"
+                  className="relative w-8 h-8 rounded-full ring-2 overflow-hidden"
                   style={{ borderColor: color }}
                 >
-                  <img
+                  <Image
                     src={user.photoURL}
                     alt={user.displayName}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="32px"
                   />
                 </div>
               ) : (

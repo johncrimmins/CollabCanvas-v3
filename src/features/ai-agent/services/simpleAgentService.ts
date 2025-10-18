@@ -5,7 +5,7 @@ import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import type { ToolExecutionContext, AIAction, AIAgentResponse } from '../types';
+import type { AIAction, AIAgentResponse } from '../types';
 
 // Public API - Request/Response interfaces
 interface CommandRequest {

@@ -110,7 +110,7 @@ export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onC
         e.preventDefault();
       }
     },
-    [tool, onCanvasClick, screenToCanvas]
+    [tool, onCanvasClick, onArrowMouseDown, screenToCanvas]
   );
   
   // Handle mouse move for panning, cursor broadcasting, and preview tracking

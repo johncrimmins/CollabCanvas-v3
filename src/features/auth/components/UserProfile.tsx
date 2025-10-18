@@ -1,6 +1,7 @@
 // User profile component - displays user info and sign out
 'use client';
 
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { signOut } from '../services/authService';
@@ -26,11 +27,15 @@ export function UserProfile() {
   return (
     <div className="flex items-center gap-3 p-2 bg-white rounded-lg shadow-sm border border-gray-200">
       {user.photoURL ? (
-        <img
-          src={user.photoURL}
-          alt={user.displayName}
-          className="w-8 h-8 rounded-full"
-        />
+        <div className="relative w-8 h-8">
+          <Image
+            src={user.photoURL}
+            alt={user.displayName}
+            fill
+            className="rounded-full object-cover"
+            sizes="32px"
+          />
+        </div>
       ) : (
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center text-white font-medium text-sm"
