@@ -1,8 +1,13 @@
-// Simple AI Agent Service - Fully self-contained feature module
+// Simple AI Agent Service - Fully self-contained feature module with ReAct agent loop
 // This file handles ALL AI agent logic, configuration, and validation
 import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage, SystemMessage } from '@langchain/core/messages';
-import { createShapeTool } from '../lib/tools';
+import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
+import { createReactAgent } from '@langchain/langgraph/prebuilt';
+import { DynamicStructuredTool } from '@langchain/core/tools';
+import { z } from 'zod';
+import {
+  canvasActionTool,
+} from '../lib/tools';
 import type { ToolExecutionContext, AIAction, AIAgentResponse } from '../types';
 
 // Public API - Request/Response interfaces
@@ -11,7 +16,8 @@ interface CommandRequest {
   userName: string;
   canvasId: string;
   userId: string;
-  objectCount?: number;  // Optional: client can send current object count to avoid server fetching
+  objectCount?: number;  // Optional: client can send current object count
+  objects?: any[];  // Optional: client can send current objects for agent context
 }
 
 // Main entry point - Feature is fully self-contained
@@ -19,7 +25,8 @@ export async function executeAICommand(request: CommandRequest): Promise<AIAgent
   try {
     console.log('[AI Agent] Received request:', { 
       command: request.command, 
-      userName: request.userName 
+      userName: request.userName,
+      objectCount: request.objects?.length || request.objectCount || 0
     });
     
     // Get OpenAI API key from environment (NOT LangChain/LangSmith key)
@@ -55,12 +62,12 @@ export async function executeAICommand(request: CommandRequest): Promise<AIAgent
     console.log('[AI Agent] Configuration validated, creating service...');
     
     // Execute command using OpenAI API key
-    const service = new SimpleAgentService(openAiApiKey);
+    const service = new SimpleAgentService(openAiApiKey, request.objects || []);
     const result = await service.executeCommand(request.command, {
       userName: request.userName,
       canvasId: request.canvasId,
       userId: request.userId,
-      objectCount: request.objectCount || 0,
+      objectCount: request.objects?.length || request.objectCount || 0,
     });
     
     console.log('[AI Agent] Command executed successfully');
@@ -99,18 +106,21 @@ export async function executeAICommand(request: CommandRequest): Promise<AIAgent
 // Internal service class - Not exported, implementation detail
 class SimpleAgentService {
   private openAiApiKey: string;
+  private currentObjects: any[];
   private capturedActions: AIAction[] = [];
   
-  constructor(openAiApiKey: string) {
+  constructor(openAiApiKey: string, currentObjects: any[] = []) {
     this.openAiApiKey = openAiApiKey;
+    this.currentObjects = currentObjects;
   }
   
   async executeCommand(
     command: string, 
     context: { userName: string; canvasId: string; userId: string; objectCount: number }
   ): Promise<AIAgentResponse> {
-    console.log('[AI Agent Service] Initializing agent...');
+    console.log('[AI Agent Service] Initializing ReAct agent...');
     console.log('[AI Agent Service] Using OpenAI key ending in:', this.openAiApiKey.slice(-4));
+    console.log('[AI Agent Service] Canvas objects available:', this.currentObjects.length);
     
     // Check LangSmith tracing status
     const tracingEnabled = process.env.LANGCHAIN_TRACING_V2 === 'true';
@@ -126,175 +136,402 @@ class SimpleAgentService {
       userName: context.userName,
     };
     
-    // Create tools that capture actions instead of executing them
-    // We pass a no-op async function - the tool will be called, we'll capture from intermediateSteps
-    const tools = [
-      createShapeTool(toolContext, async (object) => {
-        // Capture the action - this WILL be called when tool executes
-        console.log('[AI Agent] Tool executed, capturing action for:', object.type);
+    // ═══════════════════════════════════════════════════════════════════════
+    // ID-BASED TARGETING PATTERN - Phase 1: Query Canvas State
+    // ═══════════════════════════════════════════════════════════════════════
+    // This tool provides the agent with object IDs from the canvas.
+    // IDs are the ONLY reliable way to target shapes (not descriptions/colors).
+    //
+    // Why ID-based targeting?
+    // - Eliminates ambiguity when multiple shapes match a description
+    // - Prevents targeting the wrong shape (e.g., "the red circle" when there are 2)
+    // - Makes agent behavior deterministic and testable
+    // - Fixes tests 5-8 which failed due to description-based targeting
+    //
+    // Workflow: getCanvasState() → identify target ID → use ID in canvasAction()
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Create getCanvasState tool that returns actual canvas data
+    const getCanvasStateTool = new DynamicStructuredTool({
+      name: 'getCanvasState',
+      description: 'Query the current state of all shapes on the canvas. Use this when: 1) User references a shape not in your recent memory, 2) User references unfamiliar terms like "square" or spatial descriptions, 3) Multiple shapes might match and you need to disambiguate, 4) You are uncertain which shape the user means.',
+      schema: z.object({}), // No parameters needed
+      func: async () => {
+        console.log('[AI Agent] getCanvasState called - returning actual canvas data');
+        
+        // Capture that we're querying (but don't execute client-side)
         this.capturedActions.push({
-          tool: 'createShape',
-          params: {
-            type: object.type,
-            x: object.position.x,
-            y: object.position.y,
-            width: object.width,
-            height: object.height,
-            rotation: object.rotation,
-            fill: object.fill,
-            ...(object.type === 'circle' && { radius: object.radius }),
-            ...(object.type === 'text' && { 
-              text: object.text, 
-              fontSize: object.fontSize 
-            }),
-          },
+          tool: 'getCanvasState',
+          params: {},
         });
-        // Return void - we're just capturing, not actually persisting
-        return Promise.resolve();
+        
+        // Return actual canvas state formatted for LLM with unique IDs
+        // Each object includes its ID which MUST be used for subsequent operations
+        const formattedObjects = this.currentObjects.map(obj => ({
+          id: obj.id,  // ← CRITICAL: This ID must be used to target this shape
+          type: obj.type,
+          position: obj.position || { x: 0, y: 0 },
+          fill: obj.fill || 'none',
+          width: obj.width,
+          height: obj.height,
+          radius: obj.radius,
+        }));
+        
+        return JSON.stringify({
+          objects: formattedObjects,
+          count: formattedObjects.length,
+          summary: `Found ${formattedObjects.length} objects on canvas: ${formattedObjects.map(o => `${o.type} (${o.fill})`).join(', ')}`
+        }, null, 2);
+      },
+    });
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // ID-BASED TARGETING PATTERN - Phase 2: Execute Canvas Action with ID
+    // ═══════════════════════════════════════════════════════════════════════
+    // This unified tool handles ALL canvas operations using IDs from getCanvasState.
+    //
+    // Key principle: The 'target' parameter MUST be an exact ID, never a description.
+    //
+    // Example workflow for "Move the blue square to the right":
+    // 1. Agent calls getCanvasState() → receives [{id: "1729012345-abc123", type: "rectangle", fill: "#0000ff", width: 100, height: 100, position: {x: 200, y: 200}}]
+    // 2. Agent identifies blue square = ID "1729012345-abc123" (rectangle where width===height and fill is blue)
+    // 3. Agent calculates new position (move right = x + 100 = 300)
+    // 4. Agent calls canvasAction({ action: "update", target: "1729012345-abc123", updates: { position: {x: 300, y: 200} } })
+    //
+    // This pattern ensures the correct shape is targeted every time.
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    // Create unified canvasAction tool with capture mode
+    // This tool consolidates all canvas operations (create, update, delete, duplicate, arrange)
+    const canvasActionToolInstance = new DynamicStructuredTool({
+      name: 'canvasAction',
+      description: 'Perform canvas operations: create new shapes, update existing shapes, delete shapes, duplicate shapes, or arrange multiple shapes in layouts.',
+      schema: z.object({
+        action: z.enum(['create', 'update', 'delete', 'duplicate', 'arrange'])
+          .describe('The canvas action to perform: create (new shape), update (modify shape), delete (remove shape), duplicate (copy shape), arrange (layout multiple shapes)'),
+        target: z.string().optional().nullable()
+          .describe('Object ID from getCanvasState (e.g., "1729012345-abc123"). Required for update/delete/duplicate actions. Use the exact ID returned by getCanvasState, NOT descriptions like "the circle".'),
+        targets: z.array(z.string()).optional().nullable()
+          .describe('Array of object IDs from getCanvasState. Required for arrange action. Use exact IDs, not descriptions.'),
+        shape: z.object({
+          type: z.enum(['rectangle', 'circle', 'text']).describe('Shape type to create'),
+          position: z.object({
+            x: z.number().describe('X coordinate in pixels'),
+            y: z.number().describe('Y coordinate in pixels')
+          }).describe('Position on canvas'),
+          dimensions: z.object({
+            width: z.number().optional(),
+            height: z.number().optional(),
+            radius: z.number().optional()
+          }).optional().describe('Size - width/height for rectangles/text, radius for circles'),
+          style: z.object({
+            fill: z.string().optional().describe('Fill color (hex, rgb, or name)'),
+            fontSize: z.number().optional().describe('Font size for text'),
+            text: z.string().optional().describe('Text content for text shapes')
+          }).optional().describe('Visual styling')
+        }).optional().nullable().describe('Shape definition for create action'),
+        updates: z.object({
+          position: z.object({
+            x: z.number(),
+            y: z.number()
+          }).optional().describe('New position coordinates'),
+          dimensions: z.object({
+            width: z.number().optional(),
+            height: z.number().optional(),
+            radius: z.number().optional()
+          }).optional().describe('New dimensions'),
+          rotation: z.number().optional().describe('Rotation in degrees (positive = clockwise)'),
+          scale: z.number().optional().describe('Scale factor (e.g., 2 = twice as big, 0.5 = half size)'),
+          fill: z.string().optional().describe('New fill color'),
+          text: z.string().optional().describe('New text content'),
+          fontSize: z.number().optional().describe('New font size')
+        }).optional().nullable().describe('Updates to apply for update action'),
+        layout: z.object({
+          direction: z.enum(['horizontal', 'vertical']).describe('Layout direction'),
+          spacing: z.number().optional().describe('Space between shapes in pixels (default: 20)')
+        }).optional().nullable().describe('Layout configuration for arrange action'),
+        offset: z.object({
+          x: z.number().optional(),
+          y: z.number().optional()
+        }).optional().nullable().describe('Offset for duplicate action (default: {x: 50, y: 50})')
       }),
+      func: async (params: any) => {
+        console.log('[AI Agent] canvasAction called:', params.action, params);
+        
+        // Capture action for client-side execution
+        this.capturedActions.push({
+          tool: 'canvasAction',
+          params: params,
+        });
+        
+        // Return descriptive result for LLM to understand what happened
+        const { action } = params;
+        
+        if (action === 'create') {
+          const color = params.shape?.style?.fill || 'colored';
+          return `Successfully prepared to create a ${color} ${params.shape?.type}. Client will execute.`;
+        }
+        if (action === 'update') {
+          return `Successfully prepared to update shape (ID: ${params.target}). Client will execute.`;
+        }
+        if (action === 'delete') {
+          return `Successfully prepared to delete shape (ID: ${params.target}). Client will execute.`;
+        }
+        if (action === 'duplicate') {
+          return `Successfully prepared to duplicate shape (ID: ${params.target}). Client will execute.`;
+        }
+        if (action === 'arrange') {
+          return `Successfully prepared to arrange ${params.targets?.length || 0} shapes. Client will execute.`;
+        }
+        
+        return `Successfully prepared ${action} action`;
+      },
+    });
+    
+    // Create tools array with only 2 tools (reduced from 5)
+    const tools = [
+      getCanvasStateTool,
+      canvasActionToolInstance,
     ];
     
     console.log('[AI Agent Service] Created', tools.length, 'tools:', tools.map(t => t.name).join(', '));
     
-    // Create model and bind tools directly
+    // Create ChatOpenAI model
     const model = new ChatOpenAI({
       modelName: 'gpt-4o-mini',
       openAIApiKey: this.openAiApiKey,
       temperature: 0.7,
     });
     
-    // Bind tools to model for native OpenAI function calling
-    // Must convert Zod schema to JSON Schema format for OpenAI
-    const modelWithTools = model.bind({
-      tools: [
-        {
-          type: 'function' as const,
-          function: {
-            name: 'createShape',
-            description: 'Create a new shape on the canvas. Supports rectangles, circles, and text.',
-            parameters: {
-              type: 'object',
-              properties: {
-                type: {
-                  type: 'string',
-                  enum: ['rectangle', 'circle', 'text'],
-                  description: 'The type of shape to create',
-                },
-                x: {
-                  type: 'number',
-                  description: 'X position on the canvas',
-                },
-                y: {
-                  type: 'number',
-                  description: 'Y position on the canvas',
-                },
-                width: {
-                  type: 'number',
-                  description: 'Width of the shape (for rectangles and text)',
-                },
-                height: {
-                  type: 'number',
-                  description: 'Height of the shape (for rectangles and text)',
-                },
-                radius: {
-                  type: 'number',
-                  description: 'Radius of the shape (for circles)',
-                },
-                fill: {
-                  type: 'string',
-                  description: 'Fill color (e.g., "red", "#FF0000")',
-                },
-                text: {
-                  type: 'string',
-                  description: 'Text content (for text objects)',
-                },
-                fontSize: {
-                  type: 'number',
-                  description: 'Font size (for text objects)',
-                },
-              },
-              required: ['type', 'x', 'y'],
-            },
-          },
-        },
-      ],
-    });
+    // ═══════════════════════════════════════════════════════════════════════
+    // SYSTEM PROMPT - Teaches agent the ID-based targeting pattern
+    // ═══════════════════════════════════════════════════════════════════════
+    // This prompt is critical for ensuring the agent:
+    // 1. Always calls getCanvasState() before targeting existing shapes
+    // 2. Uses exact IDs (not descriptions) in the 'target' parameter
+    // 3. Calculates positions correctly for relative movements
+    // 4. Translates user vocabulary (e.g., "square" = rectangle where width===height)
+    //
+    // The prompt contains explicit examples and anti-patterns to guide the LLM.
+    // ═══════════════════════════════════════════════════════════════════════
     
-    // Create system message
+    // Create system message with ID-based targeting workflow
     const systemMessage = new SystemMessage(`You are a helpful AI assistant for a collaborative canvas application.
 
-The user's name is ${context.userName}. You have access to tools that let you create shapes on the canvas.
+The user's name is ${context.userName}. You have access to 2 powerful tools that let you manipulate the canvas.
 
-IMPORTANT: When users ask you to create shapes, you MUST use the createShape tool. Do not just describe what you would do - actually call the tool.
+IMPORTANT: When users ask you to do something, you MUST use the appropriate tool. Do not just describe what you would do - actually call the tool.
 
-Examples of commands you should handle with the createShape tool:
-- "Create a red circle at position 100, 200" → Use createShape with type='circle', x=100, y=200, fill='#ff0000'
-- "Make a 200x300 rectangle" → Use createShape with type='rectangle', width=200, height=300
-- "Add text that says Hello" → Use createShape with type='text', text='Hello'
+Available Tools:
+1. getCanvasState - Query current canvas state and get object IDs
+2. canvasAction - Perform all canvas operations (create, update, delete, duplicate, arrange)
 
-Guidelines for using the createShape tool:
+CRITICAL: ID-BASED TARGETING
+When modifying existing shapes, you MUST use object IDs from getCanvasState, NOT descriptions.
+
+✅ CORRECT: canvasAction({ action: "update", target: "1729012345-abc123", updates: {...} })
+❌ WRONG: canvasAction({ action: "update", target: "the circle", updates: {...} })
+
+WORKFLOW FOR EXISTING SHAPES:
+Step 1: Call getCanvasState() to get object IDs
+Step 2: Identify the target shape's ID from the returned data
+Step 3: Call canvasAction() using that exact ID
+
+Example:
+User: "Move the blue square to the right"
+Step 1: getCanvasState() returns:
+  [{ id: "1729012345-abc123", type: "rectangle", fill: "#0000ff", width: 100, height: 100, position: {x: 200, y: 200} }]
+Step 2: Identify blue square = ID "1729012345-abc123" (rectangle where width===height and fill is blue)
+Step 3: Calculate new position (move right = current x + 100 = 300)
+Step 4: canvasAction({ action: "update", target: "1729012345-abc123", updates: { position: {x: 300, y: 200} } })
+
+VOCABULARY TRANSLATION:
+- "square" = rectangle where width === height
+- "box" = rectangle
+- "oval" = circle
+- "move to the right" = increase x position by ~100px
+- "move left" = decrease x position by ~100px
+- "move up" = decrease y position by ~100px
+- "move down" = increase y position by ~100px
+- "twice as big" = scale: 2
+- "half the size" = scale: 0.5
+
+RELATIVE POSITIONING:
+When user says "move [direction]" or "move X pixels [direction]":
+1. Call getCanvasState() to get current position
+2. Calculate new position: current + offset
+3. Use canvasAction with new absolute position
+
+Examples:
+- "Move 100 pixels to the right" → current x + 100
+- "Move it down" → current y + 100
+- "Shift left by 50" → current x - 50
+
+canvasAction USAGE:
+
+action="create" (no query needed):
+  canvasAction({ 
+    action: "create", 
+    shape: { 
+      type: "circle", 
+      position: {x: 300, y: 200}, 
+      dimensions: {radius: 50}, 
+      style: {fill: "#ff0000"} 
+    } 
+  })
+
+action="update" (query first for ID):
+  canvasAction({ 
+    action: "update", 
+    target: "<ID from getCanvasState>", 
+    updates: { position: {x: 400, y: 300} } 
+  })
+
+action="delete" (query first for ID):
+  canvasAction({ 
+    action: "delete", 
+    target: "<ID from getCanvasState>" 
+  })
+
+action="duplicate" (query first for ID):
+  canvasAction({ 
+    action: "duplicate", 
+    target: "<ID from getCanvasState>", 
+    offset: {x: 50, y: 50} 
+  })
+
+action="arrange" (query first for IDs):
+  canvasAction({ 
+    action: "arrange", 
+    targets: ["<ID1>", "<ID2>", "<ID3>"], 
+    layout: { direction: "horizontal", spacing: 20 } 
+  })
+
+Guidelines:
 - Default positions: 200-400 for x and y (center of typical canvas)
 - Default sizes: rectangles 100x100, circles radius=50, text 200x50
-- Colors: Use hex codes (#ff0000 for red, #0000ff for blue, #00ff00 for green, etc.)
-- Always be conversational and confirm what you created
+- Colors: Use hex codes (#ff0000 for red, #0000ff for blue, #00ff00 for green, #9333ea for purple, #000000 for black, #ffffff for white)
+- Always use IDs for targeting existing shapes
+- Calculate relative movements based on current position from getCanvasState
+- Be conversational and confirm what you did using natural language
 
 The canvas currently has ${context.objectCount} object(s).`);
     
-    // Call model with tools
-    console.log('[AI Agent Service] Calling OpenAI with bound tools...');
-    const response = await modelWithTools.invoke([
-      systemMessage,
-      new HumanMessage(command),
-    ]);
+    // Create ReAct agent with LangGraph
+    console.log('[AI Agent Service] Creating ReAct agent executor...');
+    const agent = createReactAgent({
+      llm: model,
+      tools: tools,
+    });
     
-    console.log('[AI Agent Service] OpenAI response received');
-    console.log('[AI Agent Service] Response has tool_calls:', !!(response as any).additional_kwargs?.tool_calls);
+    // Invoke agent with messages
+    console.log('[AI Agent Service] Invoking agent...');
+    const result = await agent.invoke({
+      messages: [systemMessage, new HumanMessage(command)],
+    });
     
-    // Check if AI wants to call tools
-    const toolCalls = (response as any).additional_kwargs?.tool_calls;
+    console.log('[AI Agent Service] Agent execution complete');
+    console.log('[AI Agent Service] Messages in result:', result.messages?.length || 0);
+    console.log('[AI Agent Service] Actions captured:', this.capturedActions.length);
     
-    if (toolCalls && toolCalls.length > 0) {
-      console.log('[AI Agent Service] Processing', toolCalls.length, 'tool call(s)...');
-      
-      for (const toolCall of toolCalls) {
-        const toolName = toolCall.function.name;
-        const toolArgs = JSON.parse(toolCall.function.arguments);
-        
-        console.log('[AI Agent Service] Tool call:', toolName, toolArgs);
-        
-        // Find and execute the tool
-        const tool = tools.find(t => t.name === toolName);
-        if (tool) {
-          try {
-            await tool.func(toolArgs);
-            console.log('[AI Agent Service] Tool executed successfully');
-          } catch (error) {
-            console.error('[AI Agent Service] Tool execution error:', error);
-          }
-        }
-      }
-      
-      console.log('[AI Agent Service] Actions captured:', this.capturedActions.length);
-      
-      // Generate final response
-      const finalResponse = `I've ${toolCalls.length === 1 ? 'created' : 'completed'} ${toolCalls.map((tc: any) => {
-        const args = JSON.parse(tc.function.arguments);
-        return `a ${args.fill || 'colored'} ${args.type}`;
-      }).join(' and ')} on the canvas!`;
-      
-      return {
-        message: finalResponse,
-        actions: this.capturedActions,
-        success: true,
-      };
-    }
+    // Generate final response from captured actions
+    const finalResponse = this.generateResponse(this.capturedActions);
     
-    // No tools called - just return the AI's message
-    console.log('[AI Agent Service] No tools called, returning conversational response');
     return {
-      message: typeof response.content === 'string' ? response.content : String(response.content),
+      message: finalResponse,
+      actions: this.capturedActions,
       success: true,
     };
   }
+  
+  /**
+   * Translate hex color codes to human-readable color names
+   */
+  private translateColor(hexColor: string | undefined): string {
+    if (!hexColor) return 'colored';
+    
+    // Color map for basic colors (case-insensitive)
+    const colorMap: Record<string, string> = {
+      '#ff0000': 'red',
+      '#0000ff': 'blue',
+      '#00ff00': 'green',
+      '#9333ea': 'purple',
+      '#000000': 'black',
+      '#ffffff': 'white',
+    };
+    
+    const lowerHex = hexColor.toLowerCase();
+    return colorMap[lowerHex] || hexColor;
+  }
+  
+  private generateResponse(actions: AIAction[]): string {
+    // Filter out query-only tools
+    const actionableTools = actions.filter(a => a.tool !== 'getCanvasState');
+    
+    if (actionableTools.length === 0) {
+      return "I've checked the canvas. Let me know what you'd like me to do!";
+    }
+    
+    const descriptions = actionableTools.map(action => {
+      // Handle new canvasAction tool
+      if (action.tool === 'canvasAction') {
+        const { action: actionType, shape, target } = action.params;
+        
+        if (actionType === 'create' && shape) {
+          const color = this.translateColor(shape.style?.fill);
+          return `created a ${color} ${shape.type}`;
+        }
+        if (actionType === 'update') {
+          return `updated the shape`;
+        }
+        if (actionType === 'delete') {
+          return `deleted the shape`;
+        }
+        if (actionType === 'duplicate') {
+          return `duplicated the shape`;
+        }
+        if (actionType === 'arrange') {
+          const count = action.params.targets?.length || 0;
+          return `arranged ${count} shapes`;
+        }
+      }
+      
+      // Legacy tool support (for backward compatibility during transition)
+      if (action.tool === 'manageShape') {
+        const { operation, shapeType, style, target } = action.params;
+        
+        if (operation === 'create') {
+          const color = this.translateColor(style?.fill);
+          return `created a ${color} ${shapeType}`;
+        }
+        if (operation === 'update') {
+          return `updated the ${target}`;
+        }
+        if (operation === 'delete') {
+          return `deleted the ${target}`;
+        }
+        if (operation === 'duplicate') {
+          return `duplicated the ${target}`;
+        }
+      }
+      
+      if (action.tool === 'arrangeShapes') {
+        return 'arranged the shapes';
+      }
+      
+      if (action.tool === 'createLoginForm') {
+        return 'created a login form';
+      }
+      
+      if (action.tool === 'createCardLayout') {
+        return 'created a card layout';
+      }
+      
+      return `executed ${action.tool}`;
+    }).filter(Boolean);
+    
+    return descriptions.length > 0 
+      ? `I've ${descriptions.join(' and ')}!`
+      : "Done!";
+  }
 }
-

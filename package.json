@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
     "@langchain/core": "^0.3.78",
+    "@langchain/langgraph": "^0.4.9",
     "@langchain/openai": "^0.3.17",
     "clsx": "^2.1.1",
     "firebase": "^10.12.0",

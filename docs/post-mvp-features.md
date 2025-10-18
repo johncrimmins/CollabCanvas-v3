@@ -1091,6 +1091,30 @@ export const feedbackService = {
 - Improve ranking algorithm
 - Display confidence scores
 
+### 10.4 LangGraph Custom State Graph (Advanced)
+
+**Purpose**: Explore custom agent architecture with full control over state management and decision flow
+
+**Prerequisites**:
+- LangGraph createReactAgent working well
+- Need for custom agent behavior (e.g., parallel tool execution, custom memory, specialized loops)
+
+**Approach**: Build custom state graph using LangGraph's graph primitives
+
+**Benefits**:
+- Complete control over agent loop logic
+- Custom state persistence between steps
+- Parallel tool execution
+- Advanced memory management
+- Custom decision nodes
+
+**Resources**:
+- LangGraph documentation on custom graphs
+- Example: Multi-step canvas operations with preview/confirm flow
+- Example: Parallel image search while generating layout
+
+**Status**: Exploratory - only pursue if createReactAgent limitations encountered
+
 ---
 
 ## Implementation Notes

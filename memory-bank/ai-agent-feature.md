@@ -1,6 +1,15 @@
-# AI Agent Feature: CollabCanvas v3
+# ⚠️ DEPRECATED - AI Agent Feature: CollabCanvas v3
 
-## Overview
+**This document describes the OLD 10-tool architecture and is now DEPRECATED.**
+
+**For current 2-tool architecture (getCanvasState + canvasAction), see:**
+- `tasks/prd-ai-agent-tool-consolidation.md` - PRD for new architecture
+- `src/features/ai-agent/services/simpleAgentService.ts` - Implementation
+- `src/features/ai-agent/lib/tools.ts` - Tool definitions
+
+---
+
+## Overview (OUTDATED)
 The AI Agent feature enables users to create and manipulate canvas objects using natural language commands. Built with LangChain and OpenAI, it provides intelligent shape manipulation through a chat interface.
 
 ## Architecture

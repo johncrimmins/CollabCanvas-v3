@@ -5,8 +5,13 @@ import { executeAICommand } from '@/features/ai-agent/services/simpleAgentServic
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. Parse request
+    // 1. Parse request (now includes canvas objects for agent context)
     const body = await request.json();
+    
+    console.log('[API Route] Request received:', {
+      command: body.command?.substring(0, 50),
+      objectCount: body.objects?.length || body.objectCount || 0,
+    });
     
     // 2. Delegate to feature (feature handles EVERYTHING)
     const result = await executeAICommand(body);
