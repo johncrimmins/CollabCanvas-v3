@@ -91,6 +91,55 @@ export async function deleteObject(canvasId: string, objectId: string): Promise<
 }
 
 /**
+ * Duplicate an existing object
+ * Creates a copy of the source object with a 20px offset
+ */
+export async function duplicateObject(
+  canvasId: string,
+  objectId: string
+): Promise<CanvasObject> {
+  // Retrieve source object from Firestore
+  const sourceObject = await getObject(canvasId, objectId);
+  
+  if (!sourceObject) {
+    throw new Error(`Object ${objectId} not found`);
+  }
+  
+  // Generate new UUID for the duplicate
+  const newId = uuidv4();
+  const now = Date.now();
+  
+  // Clone all object properties
+  const duplicateObject: CanvasObject = {
+    ...sourceObject,
+    id: newId,
+    // Apply 20px offset to position
+    position: {
+      x: sourceObject.position.x + 20,
+      y: sourceObject.position.y + 20,
+    },
+    // Set new timestamps
+    createdAt: now,
+    updatedAt: now,
+  };
+  
+  // Persist to Firestore using existing createObject logic
+  const db = getFirestore();
+  const objectRef = doc(db, 'canvases', canvasId, 'objects', newId);
+  await setDoc(objectRef, duplicateObject);
+  
+  // Broadcast creation via RTDB for real-time sync
+  await broadcastObjectUpdate(canvasId, {
+    id: newId,
+    updates: duplicateObject,
+    timestamp: now,
+  });
+  
+  // Return the new duplicate object
+  return duplicateObject;
+}
+
+/**
  * Get all objects for a canvas
  */
 export async function getCanvasObjects(canvasId: string): Promise<CanvasObject[]> {

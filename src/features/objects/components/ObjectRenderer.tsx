@@ -1,12 +1,13 @@
 // Object renderer - renders all canvas objects
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { CanvasObject } from '../types';
 import { Rectangle } from './Rectangle';
 import { Circle } from './Circle';
 import { Text } from './Text';
 import { Arrow } from './Arrow';
+import { useObjectsStore } from '../lib/objectsStore';
 
 interface ObjectRendererProps {
   objects: CanvasObject[];
@@ -16,6 +17,7 @@ interface ObjectRendererProps {
   onObjectTransform?: (objectId: string, updates: Partial<CanvasObject>) => void;
   onObjectTransformEnd?: (objectId: string) => void;
   onObjectSelect?: (objectId: string | null) => void;
+  onObjectRightClick?: (objectId: string, position: { x: number; y: number }) => void;
   currentUserId?: string;
   presenceUsers?: Record<string, { displayName: string }>;
   deselectTrigger?: number; // Increment this to trigger deselection
@@ -29,24 +31,39 @@ export function ObjectRenderer({
   onObjectTransform,
   onObjectTransformEnd,
   onObjectSelect,
+  onObjectRightClick,
   currentUserId,
   presenceUsers = {},
   deselectTrigger,
 }: ObjectRendererProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Get selection state and actions from store
+  const selectedObjectIds = useObjectsStore((state) => state.selectedObjectIds);
+  const toggleObjectSelection = useObjectsStore((state) => state.toggleObjectSelection);
+  const setSelection = useObjectsStore((state) => state.setSelection);
+  const clearSelection = useObjectsStore((state) => state.clearSelection);
   
   // Deselect when trigger changes
   useEffect(() => {
     if (deselectTrigger !== undefined) {
-      setSelectedId(null);
+      clearSelection();
       if (onObjectSelect) {
         onObjectSelect(null);
       }
     }
-  }, [deselectTrigger, onObjectSelect]);
+  }, [deselectTrigger, onObjectSelect, clearSelection]);
   
-  const handleSelect = (id: string) => {
-    setSelectedId(id);
+  const handleSelect = (id: string, ctrlKey: boolean, metaKey: boolean) => {
+    const isMultiSelect = ctrlKey || metaKey;
+    
+    if (isMultiSelect) {
+      // Toggle selection (add or remove from selection)
+      toggleObjectSelection(id);
+    } else {
+      // Single select (clear others and select this one)
+      setSelection([id]);
+    }
+    
+    // Notify parent (for backward compatibility)
     if (onObjectSelect) {
       onObjectSelect(id);
     }
@@ -84,7 +101,7 @@ export function ObjectRenderer({
   return (
     <>
       {objects.map((object) => {
-        const isSelected = object.id === selectedId;
+        const isSelected = selectedObjectIds.includes(object.id);
         const isBeingTransformedByOther = !!(object.transformingBy && object.transformingBy !== currentUserId);
         const transformingUserName = object.transformingBy && presenceUsers[object.transformingBy]?.displayName;
         
@@ -94,7 +111,8 @@ export function ObjectRenderer({
               key={object.id}
               object={object}
               isSelected={isSelected}
-              onSelect={() => handleSelect(object.id)}
+              onSelect={(ctrlKey, metaKey) => handleSelect(object.id, ctrlKey, metaKey)}
+              onRightClick={onObjectRightClick ? (pos) => onObjectRightClick(object.id, pos) : undefined}
               onDragMove={(pos) => handleDragMove(object.id, pos)}
               onDragEnd={(pos) => handleDragEnd(object.id, pos)}
               onTransformStart={() => handleTransformStart(object.id)}
@@ -112,7 +130,8 @@ export function ObjectRenderer({
               key={object.id}
               object={object}
               isSelected={isSelected}
-              onSelect={() => handleSelect(object.id)}
+              onSelect={(ctrlKey, metaKey) => handleSelect(object.id, ctrlKey, metaKey)}
+              onRightClick={onObjectRightClick ? (pos) => onObjectRightClick(object.id, pos) : undefined}
               onDragMove={(pos) => handleDragMove(object.id, pos)}
               onDragEnd={(pos) => handleDragEnd(object.id, pos)}
               onTransformStart={() => handleTransformStart(object.id)}
@@ -130,7 +149,8 @@ export function ObjectRenderer({
               key={object.id}
               object={object}
               isSelected={isSelected}
-              onSelect={() => handleSelect(object.id)}
+              onSelect={(ctrlKey, metaKey) => handleSelect(object.id, ctrlKey, metaKey)}
+              onRightClick={onObjectRightClick ? (pos) => onObjectRightClick(object.id, pos) : undefined}
               onDragMove={(pos) => handleDragMove(object.id, pos)}
               onDragEnd={(pos) => handleDragEnd(object.id, pos)}
               onTransformStart={() => handleTransformStart(object.id)}
@@ -148,7 +168,8 @@ export function ObjectRenderer({
               key={object.id}
               object={object}
               isSelected={isSelected}
-              onSelect={() => handleSelect(object.id)}
+              onSelect={(ctrlKey, metaKey) => handleSelect(object.id, ctrlKey, metaKey)}
+              onRightClick={onObjectRightClick ? (pos) => onObjectRightClick(object.id, pos) : undefined}
               onDragMove={(pos) => handleDragMove(object.id, pos)}
               onDragEnd={(pos) => handleDragEnd(object.id, pos)}
               onTransformStart={() => handleTransformStart(object.id)}

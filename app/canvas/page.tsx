@@ -5,12 +5,16 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ProtectedRoute, UserProfile, useAuthStore } from '@/features/auth';
 import { Canvas, CanvasToolbar } from '@/features/canvas';
 import { OnlineUsers, usePresenceStore } from '@/features/presence';
-import { ObjectRenderer, useObjects, broadcastShapePreview, subscribeToShapePreviews } from '@/features/objects';
+import { ObjectRenderer, useObjects, broadcastShapePreview, subscribeToShapePreviews, useObjectsStore } from '@/features/objects';
+import { useHistory } from '@/features/objects/hooks/useHistory';
 import { ShapePreview as ShapePreviewComponent } from '@/features/objects/components/ShapePreview';
 import type { ShapePreview as ShapePreviewType } from '@/features/objects/types';
 import { AIChat } from '@/features/ai-agent';
 import { Point } from '@/shared/types';
 import { throttle } from '@/shared/lib/utils';
+import { ContextMenu, type ContextMenuItem } from '@/shared/components/ContextMenu';
+import { PropertyEditor } from '@/shared/components/PropertyEditor';
+import { LayerPanel } from '@/features/objects/components/LayerPanel';
 
 // Tell Next.js not to prerender this page
 export const dynamic = 'force-dynamic';
@@ -25,7 +29,21 @@ export default function CanvasPage() {
   const [deselectTrigger, setDeselectTrigger] = useState(0);
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
   const [shapePreviews, setShapePreviews] = useState<Record<string, ShapePreviewType>>({});
-  const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  
+  // Context menu state
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuObjectId, setContextMenuObjectId] = useState<string | null>(null);
+  
+  // Property editor state
+  const [propertyEditorOpen, setPropertyEditorOpen] = useState(false);
+  const [propertyEditorObject, setPropertyEditorObject] = useState<typeof objects[0] | null>(null);
+  
+  // Get selection state and actions from store
+  const selectedObjectIds = useObjectsStore((state) => state.selectedObjectIds);
+  const selectObject = useObjectsStore((state) => state.selectObject);
+  const clearSelection = useObjectsStore((state) => state.clearSelection);
+  const setSelection = useObjectsStore((state) => state.setSelection);
   
   // Arrow drawing state
   const [isDrawingArrow, setIsDrawingArrow] = useState(false);
@@ -36,11 +54,20 @@ export default function CanvasPage() {
     createObject, 
     updateObject, 
     deleteObject,
+    duplicateObject,
     broadcastObjectMove,
     broadcastObjectTransformStart,
     broadcastObjectTransform,
     broadcastObjectTransformEnd,
   } = useObjects(canvasId);
+  
+  // History for undo/redo
+  const { undo, redo, canUndo, canRedo } = useHistory({
+    canvasId,
+    createObject: (params) => createObject({ ...params, isUndoRedo: true }),
+    updateObject: (objectId, updates) => updateObject(objectId, updates, true),
+    deleteObject: (objectId) => deleteObject(objectId, true),
+  });
   
   // Initialize canvas ID (in production, this would come from route params or creation flow)
   useEffect(() => {
@@ -264,34 +291,270 @@ export default function CanvasPage() {
   }, []);
   
   const handleObjectSelect = useCallback((objectId: string | null) => {
-    setSelectedObjectId(objectId);
-  }, []);
+    if (objectId) {
+      setSelection([objectId]);
+    } else {
+      clearSelection();
+    }
+  }, [setSelection, clearSelection]);
+  
+  const handleObjectRightClick = useCallback((objectId: string, position: { x: number; y: number }) => {
+    // If right-clicked object is not selected, select it
+    if (!selectedObjectIds.includes(objectId)) {
+      setSelection([objectId]);
+    }
+    
+    setContextMenuObjectId(objectId);
+    setContextMenuPosition(position);
+    setContextMenuOpen(true);
+  }, [selectedObjectIds, setSelection]);
   
   const handleDeleteSelected = useCallback(async () => {
-    if (selectedObjectId && canvasId) {
+    if (selectedObjectIds.length > 0 && canvasId) {
       try {
-        await deleteObject(selectedObjectId);
-        setSelectedObjectId(null);
+        // Delete all selected objects
+        await Promise.all(selectedObjectIds.map(id => deleteObject(id)));
+        clearSelection();
       } catch (error) {
-        console.error('Failed to delete object:', error);
+        console.error('Failed to delete objects:', error);
       }
     }
-  }, [selectedObjectId, canvasId, deleteObject]);
+  }, [selectedObjectIds, canvasId, deleteObject, clearSelection]);
   
-  // Keyboard shortcuts for delete
+  const handleDuplicateSelected = useCallback(async () => {
+    // Only duplicate if exactly one object is selected
+    if (selectedObjectIds.length === 1 && canvasId) {
+      try {
+        const duplicate = await duplicateObject(selectedObjectIds[0]);
+        // Select the newly created duplicate
+        setSelection([duplicate.id]);
+      } catch (error) {
+        console.error('Failed to duplicate object:', error);
+      }
+    }
+  }, [selectedObjectIds, canvasId, duplicateObject, setSelection]);
+  
+  // Get clipboard functions from store
+  const copyObject = useObjectsStore((state) => state.copyObject);
+  const copiedObject = useObjectsStore((state) => state.copiedObject);
+  const lastPastedPosition = useObjectsStore((state) => state.lastPastedPosition);
+  const setLastPastedPosition = useObjectsStore((state) => state.setLastPastedPosition);
+  
+  const handleCopySelected = useCallback(() => {
+    // Only copy if exactly one object is selected
+    if (selectedObjectIds.length === 1 && canvasId) {
+      const objectToCopy = objects.find(obj => obj.id === selectedObjectIds[0]);
+      if (objectToCopy) {
+        copyObject(objectToCopy);
+        console.log('Copied object to clipboard');
+      }
+    }
+  }, [selectedObjectIds, canvasId, objects, copyObject]);
+  
+  const handlePaste = useCallback(async () => {
+    if (!copiedObject || !canvasId || !user) return;
+    
+    try {
+      // Calculate paste position
+      let pastePosition: { x: number; y: number };
+      
+      if (lastPastedPosition) {
+        // Sequential paste: offset from last pasted position
+        pastePosition = {
+          x: lastPastedPosition.x + 20,
+          y: lastPastedPosition.y + 20,
+        };
+      } else {
+        // First paste: offset from original position
+        pastePosition = {
+          x: copiedObject.originalPosition.x + 20,
+          y: copiedObject.originalPosition.y + 20,
+        };
+      }
+      
+      // Create new object with copied properties
+      const pasted = await createObject({
+        type: copiedObject.type,
+        x: pastePosition.x,
+        y: pastePosition.y,
+        width: copiedObject.width,
+        height: copiedObject.height,
+        rotation: copiedObject.rotation,
+        fill: copiedObject.fill,
+        text: copiedObject.text,
+        fontSize: copiedObject.fontSize,
+        radius: copiedObject.radius,
+        points: copiedObject.points,
+        stroke: copiedObject.stroke,
+        strokeWidth: copiedObject.strokeWidth,
+        pointerLength: copiedObject.pointerLength,
+        pointerWidth: copiedObject.pointerWidth,
+      });
+      
+      // Update last pasted position for sequential pastes
+      setLastPastedPosition(pastePosition);
+      
+      // Select the newly pasted object
+      if (pasted) {
+        setSelection([pasted.id]);
+      }
+      
+      console.log('Pasted object from clipboard');
+    } catch (error) {
+      console.error('Failed to paste object:', error);
+    }
+  }, [copiedObject, lastPastedPosition, canvasId, user, createObject, setLastPastedPosition, setSelection]);
+  
+  // Context menu actions
+  const handleEditProperties = useCallback(() => {
+    if (contextMenuObjectId) {
+      const obj = objects.find(o => o.id === contextMenuObjectId);
+      if (obj) {
+        setPropertyEditorObject(obj);
+        setPropertyEditorOpen(true);
+      }
+    }
+  }, [contextMenuObjectId, objects]);
+  
+  const handlePropertyUpdate = useCallback((updates: Partial<typeof objects[0]>) => {
+    if (propertyEditorObject && canvasId) {
+      updateObject(propertyEditorObject.id, updates);
+    }
+  }, [propertyEditorObject, canvasId, updateObject]);
+  
+  const handleToggleVisibility = useCallback((objectId: string) => {
+    const obj = objects.find(o => o.id === objectId);
+    if (obj && canvasId) {
+      updateObject(objectId, { visible: !(obj.visible !== false) });
+    }
+  }, [objects, canvasId, updateObject]);
+  
+  const handleContextMenuDuplicate = useCallback(async () => {
+    if (contextMenuObjectId && canvasId) {
+      try {
+        const duplicate = await duplicateObject(contextMenuObjectId);
+        setSelection([duplicate.id]);
+      } catch (error) {
+        console.error('Failed to duplicate object:', error);
+      }
+    }
+  }, [contextMenuObjectId, canvasId, duplicateObject, setSelection]);
+  
+  const handleContextMenuCopy = useCallback(() => {
+    if (contextMenuObjectId) {
+      const obj = objects.find(o => o.id === contextMenuObjectId);
+      if (obj) {
+        copyObject(obj);
+      }
+    }
+  }, [contextMenuObjectId, objects, copyObject]);
+  
+  const handleContextMenuDelete = useCallback(async () => {
+    if (selectedObjectIds.length > 0 && canvasId) {
+      try {
+        await Promise.all(selectedObjectIds.map(id => deleteObject(id)));
+        clearSelection();
+      } catch (error) {
+        console.error('Failed to delete objects:', error);
+      }
+    }
+  }, [selectedObjectIds, canvasId, deleteObject, clearSelection]);
+  
+  // Build context menu items
+  const contextMenuItems: ContextMenuItem[] = selectedObjectIds.length > 1 ? [
+    // Multi-select menu
+    {
+      label: `Delete ${selectedObjectIds.length} objects`,
+      onClick: handleContextMenuDelete,
+      danger: true,
+    },
+  ] : [
+    // Single-select menu
+    {
+      label: 'Edit Properties',
+      onClick: handleEditProperties,
+    },
+    { divider: true, label: '', onClick: () => {} },
+    {
+      label: 'Duplicate',
+      onClick: handleContextMenuDuplicate,
+    },
+    {
+      label: 'Copy',
+      onClick: handleContextMenuCopy,
+    },
+    {
+      label: 'Paste',
+      onClick: handlePaste,
+      disabled: !copiedObject,
+    },
+    { divider: true, label: '', onClick: () => {} },
+    {
+      label: 'Delete',
+      onClick: handleContextMenuDelete,
+      danger: true,
+    },
+  ];
+  
+  // Keyboard shortcuts for delete, duplicate, copy, paste, undo, and redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const hasSelection = selectedObjectIds.length > 0;
+      const hasSingleSelection = selectedObjectIds.length === 1;
+      
+      // Undo: Ctrl+Z (Windows/Linux) or Cmd+Z (Mac)
+      if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+        e.preventDefault();
+        if (canUndo) {
+          undo();
+        }
+        return;
+      }
+      
+      // Redo: Ctrl+Y (Windows/Linux) or Cmd+Shift+Z (Mac)
+      if (
+        ((e.key === 'y' || e.key === 'Y') && e.ctrlKey && !e.metaKey) ||
+        ((e.key === 'z' || e.key === 'Z') && e.metaKey && e.shiftKey)
+      ) {
+        e.preventDefault();
+        if (canRedo) {
+          redo();
+        }
+        return;
+      }
+      
       // Delete or Backspace key
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedObjectId) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection) {
         // Prevent backspace from navigating back in browser
         e.preventDefault();
         handleDeleteSelected();
+      }
+      
+      // Ctrl+D (Windows/Linux) or Cmd+D (Mac) for duplicate
+      if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey) && hasSingleSelection) {
+        // Prevent default browser bookmark dialog
+        e.preventDefault();
+        handleDuplicateSelected();
+      }
+      
+      // Ctrl+C (Windows/Linux) or Cmd+C (Mac) for copy
+      if ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey) && hasSingleSelection) {
+        // Prevent default browser copy behavior
+        e.preventDefault();
+        handleCopySelected();
+      }
+      
+      // Ctrl+V (Windows/Linux) or Cmd+V (Mac) for paste
+      if ((e.key === 'v' || e.key === 'V') && (e.ctrlKey || e.metaKey)) {
+        // Prevent default browser paste behavior
+        e.preventDefault();
+        handlePaste();
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedObjectId, handleDeleteSelected]);
+  }, [selectedObjectIds, handleDeleteSelected, handleDuplicateSelected, handleCopySelected, handlePaste, undo, redo, canUndo, canRedo]);
   
   if (!canvasId) {
     return (
@@ -450,7 +713,8 @@ export default function CanvasPage() {
         </header>
         
         {/* Main Canvas Area */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative flex">
+          <div className="flex-1 relative">
           <Canvas 
             canvasId={canvasId} 
             tool={tool} 
@@ -460,7 +724,7 @@ export default function CanvasPage() {
             onArrowMouseUp={handleArrowMouseUp}
           >
             <ObjectRenderer
-              objects={objects}
+              objects={objects.filter(obj => obj.visible !== false)}
               onObjectUpdate={(objectId, updates) => {
                 updateObject(objectId, updates);
               }}
@@ -477,6 +741,7 @@ export default function CanvasPage() {
                 broadcastObjectTransformEnd(objectId);
               }}
               onObjectSelect={handleObjectSelect}
+              onObjectRightClick={handleObjectRightClick}
               currentUserId={user?.id}
               presenceUsers={presence}
               deselectTrigger={deselectTrigger}
@@ -513,6 +778,29 @@ export default function CanvasPage() {
               />
             </div>
           )}
+          
+          {/* Context Menu */}
+          <ContextMenu
+            isOpen={contextMenuOpen}
+            position={contextMenuPosition}
+            items={contextMenuItems}
+            onClose={() => setContextMenuOpen(false)}
+          />
+          
+          {/* Property Editor */}
+          <PropertyEditor
+            isOpen={propertyEditorOpen}
+            object={propertyEditorObject}
+            onClose={() => setPropertyEditorOpen(false)}
+            onUpdate={handlePropertyUpdate}
+          />
+          </div>
+          
+          {/* Layer Panel */}
+          <LayerPanel
+            objects={objects}
+            onToggleVisibility={handleToggleVisibility}
+          />
         </div>
       </div>
     </ProtectedRoute>

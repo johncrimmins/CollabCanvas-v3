@@ -3,6 +3,7 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { useObjectsStore } from '../lib/objectsStore';
+import { useHistoryStore } from '../lib/historyStore';
 import { useAuth } from '@/features/auth';
 import { CanvasObject, CreateObjectParams } from '../types';
 import { Point } from '@/shared/types';
@@ -11,6 +12,7 @@ import {
   createObject as createObjectService,
   updateObject as updateObjectService,
   deleteObject as deleteObjectService,
+  duplicateObject as duplicateObjectService,
   subscribeToObjectUpdates,
   subscribeToCanvasObjects,
   broadcastPositionUpdate,
@@ -29,6 +31,7 @@ export function useObjects(canvasId: string | null) {
   const addObject = useObjectsStore((state) => state.addObject);
   const updateObject = useObjectsStore((state) => state.updateObject);
   const removeObject = useObjectsStore((state) => state.removeObject);
+  const pushAction = useHistoryStore((state) => state.pushAction);
   
   // Subscribe to objects on mount
   useEffect(() => {
@@ -71,7 +74,7 @@ export function useObjects(canvasId: string | null) {
   
   // Create object
   const createObject = useCallback(
-    async (params: CreateObjectParams & Partial<CanvasObject>) => {
+    async (params: CreateObjectParams & Partial<CanvasObject> & { isUndoRedo?: boolean; id?: string }) => {
       if (!canvasId || !user) return;
       
       const newObject: Omit<CanvasObject, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -79,9 +82,10 @@ export function useObjects(canvasId: string | null) {
         position: { x: params.x, y: params.y },
         width: params.width || 100,
         height: params.height || 100,
-        rotation: 0,
+        rotation: params.rotation || 0,
         fill: params.fill || '#3B82F6',
         createdBy: user.id,
+        visible: params.visible !== undefined ? params.visible : true,
         // Include arrow-specific properties if provided
         ...(params.points && { points: params.points }),
         ...(params.stroke && { stroke: params.stroke }),
@@ -99,13 +103,25 @@ export function useObjects(canvasId: string | null) {
         console.log(`[Persistence] Created object ${object.id} in Firestore`);
         // Optimistically add to local state
         addObject(object);
+        
+        // Push to history (unless this is from undo/redo)
+        if (!params.isUndoRedo) {
+          pushAction({
+            type: 'create',
+            objectId: object.id,
+            beforeState: null,
+            afterState: object,
+            timestamp: Date.now(),
+          });
+        }
+        
         return object;
       } catch (error) {
         console.error('[Persistence] Failed to create object:', error);
         throw error;
       }
     },
-    [canvasId, user, addObject]
+    [canvasId, user, addObject, pushAction]
   );
   
   // Throttled broadcast for real-time position updates during drag (60fps = 16ms)
@@ -204,19 +220,69 @@ export function useObjects(canvasId: string | null) {
   
   // Delete object
   const deleteObject = useCallback(
-    async (objectId: string) => {
+    async (objectId: string, isUndoRedo = false) => {
       if (!canvasId) return;
       
       try {
+        // Capture before state for history (before deleting)
+        const objectsMap = useObjectsStore.getState().objects;
+        const beforeState = objectsMap[objectId];
+        
         // Optimistically remove from local state
         removeObject(objectId);
         await deleteObjectService(canvasId, objectId);
+        
+        // Push to history (unless this is from undo/redo)
+        if (!isUndoRedo && beforeState) {
+          pushAction({
+            type: 'delete',
+            objectId,
+            beforeState,
+            afterState: null,
+            timestamp: Date.now(),
+          });
+        }
       } catch (error) {
         console.error('Failed to delete object:', error);
         throw error;
       }
     },
-    [canvasId, removeObject]
+    [canvasId, removeObject, pushAction]
+  );
+  
+  // Duplicate object
+  const duplicateObject = useCallback(
+    async (objectId: string, isUndoRedo = false): Promise<CanvasObject> => {
+      if (!canvasId) {
+        throw new Error('Canvas ID is required');
+      }
+      
+      try {
+        // Call service to duplicate object (creates copy with 20px offset)
+        const duplicate = await duplicateObjectService(canvasId, objectId);
+        console.log(`[Persistence] Duplicated object ${objectId} as ${duplicate.id}`);
+        
+        // Optimistically add to local state
+        addObject(duplicate);
+        
+        // Push to history (unless this is from undo/redo)
+        if (!isUndoRedo) {
+          pushAction({
+            type: 'duplicate',
+            objectId: duplicate.id,
+            beforeState: null,
+            afterState: duplicate,
+            timestamp: Date.now(),
+          });
+        }
+        
+        return duplicate;
+      } catch (error) {
+        console.error('Failed to duplicate object:', error);
+        throw error;
+      }
+    },
+    [canvasId, addObject, pushAction]
   );
   
   return {
@@ -229,13 +295,38 @@ export function useObjects(canvasId: string | null) {
     broadcastObjectTransform,
     broadcastObjectTransformEnd,
     deleteObject,
-    updateObject: (objectId: string, updates: Partial<CanvasObject>) => {
+    duplicateObject,
+    updateObject: (objectId: string, updates: Partial<CanvasObject>, isUndoRedo = false) => {
+      // Capture before state for history
+      const objectsMap = useObjectsStore.getState().objects;
+      const beforeState = objectsMap[objectId];
+      
       // Optimistic local update
       updateObject(objectId, updates);
       
       // Persist to backend
       if (canvasId) {
         updateObjectService(canvasId, objectId, updates).catch(console.error);
+      }
+      
+      // Push to history (unless this is from undo/redo)
+      if (!isUndoRedo && beforeState) {
+        pushAction({
+          type: 'update',
+          objectId,
+          beforeState: { 
+            fill: beforeState.fill,
+            width: beforeState.width,
+            height: beforeState.height,
+            rotation: beforeState.rotation,
+            visible: beforeState.visible,
+            text: beforeState.text,
+            fontSize: beforeState.fontSize,
+            radius: beforeState.radius,
+          },
+          afterState: updates,
+          timestamp: Date.now(),
+        });
       }
     },
   };

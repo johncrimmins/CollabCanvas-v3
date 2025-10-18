@@ -15,6 +15,8 @@ export interface CanvasObject {
   createdBy: string;
   createdAt: number;
   updatedAt: number;
+  // Optional: visibility (for layer panel)
+  visible?: boolean; // Default: true
   // Optional: tracks which user is currently transforming this object
   transformingBy?: string;
   // Optional: for circles

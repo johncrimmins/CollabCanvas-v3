@@ -12,7 +12,8 @@ interface PositionTransform {
 interface UseShapeInteractionsProps {
   objectId: string;
   isSelected: boolean;
-  onSelect?: () => void;
+  onSelect?: (ctrlKey: boolean, metaKey: boolean) => void;
+  onRightClick?: (position: { x: number; y: number }) => void;
   onDragMove?: (position: { x: number; y: number }) => void;
   onDragEnd?: (position: { x: number; y: number }) => void;
   onTransformStart?: () => void;
@@ -58,6 +59,7 @@ interface UseShapeInteractionsProps {
 export function useShapeInteractions<T extends Konva.Shape = Konva.Shape>({
   isSelected,
   onSelect,
+  onRightClick,
   onDragMove,
   onDragEnd,
   onTransformStart,
@@ -170,12 +172,54 @@ export function useShapeInteractions<T extends Konva.Shape = Konva.Shape>({
     }
   }, [onTransformEnd, positionTransform]);
 
+  // Handle click - extract modifier keys and pass to onSelect
+  const handleClick = useCallback(
+    (e: Konva.KonvaEventObject<MouseEvent>) => {
+      if (onSelect) {
+        const evt = e.evt;
+        onSelect(evt.ctrlKey, evt.metaKey);
+      }
+    },
+    [onSelect]
+  );
+
+  // Handle tap (mobile) - no modifier keys on mobile
+  const handleTap = useCallback(
+    (e: Konva.KonvaEventObject<Event>) => {
+      if (onSelect) {
+        onSelect(false, false);
+      }
+    },
+    [onSelect]
+  );
+
+  // Handle right-click (context menu)
+  const handleContextMenu = useCallback(
+    (e: Konva.KonvaEventObject<PointerEvent>) => {
+      e.evt.preventDefault(); // Prevent browser context menu
+      
+      if (onRightClick) {
+        // Get screen position for context menu
+        const stage = e.target.getStage();
+        if (stage) {
+          const pointerPosition = stage.getPointerPosition();
+          if (pointerPosition) {
+            // Use screen coordinates for menu positioning
+            onRightClick({ x: pointerPosition.x, y: pointerPosition.y });
+          }
+        }
+      }
+    },
+    [onRightClick]
+  );
+
   return {
     shapeRef,
     trRef,
     handlers: {
-      onClick: onSelect,
-      onTap: onSelect,
+      onClick: handleClick,
+      onTap: handleTap,
+      onContextMenu: handleContextMenu,
       onDragMove: handleDragMove,
       onDragEnd: handleDragEnd,
       onTransformStart: handleTransformStart,
