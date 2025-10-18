@@ -155,7 +155,7 @@ export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onC
   );
   
   // Handle mouse up
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handleMouseUp = useCallback(() => {
     const stage = stageRef.current;
     
     // Handle arrow tool - finish drawing

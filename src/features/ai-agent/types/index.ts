@@ -48,7 +48,7 @@ export interface AIAction {
    * Parameters for the tool execution.
    * Type varies based on the tool selected.
    */
-  params: Record<string, any>;
+  params: Record<string, unknown>;
 }
 
 export interface AIAgentResponse {

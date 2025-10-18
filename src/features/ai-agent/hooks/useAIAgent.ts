@@ -335,11 +335,11 @@ async function executeAction(
         
         // Add type-specific fields
         if (shapeType === 'circle') {
-          (objectParams as any).radius = dimensions?.radius ?? 50;
+          objectParams.radius = dimensions?.radius ?? 50;
         }
         if (shapeType === 'text') {
-          (objectParams as any).text = style?.text ?? 'Text';
-          (objectParams as any).fontSize = style?.fontSize ?? 16;
+          objectParams.text = style?.text ?? 'Text';
+          objectParams.fontSize = style?.fontSize ?? 16;
         }
         
         await createObject(canvasId, objectParams);
@@ -372,7 +372,7 @@ async function executeAction(
         if (dimensions) {
           if (dimensions.width !== undefined) updates.width = dimensions.width;
           if (dimensions.height !== undefined) updates.height = dimensions.height;
-          if (dimensions.radius !== undefined) (updates as any).radius = dimensions.radius;
+          if (dimensions.radius !== undefined) updates.radius = dimensions.radius;
         }
         
         // Handle transform updates
@@ -383,7 +383,7 @@ async function executeAction(
           if (transform.scale !== undefined) {
             // Apply scale
             if (targetObject.type === 'circle' && targetObject.radius) {
-              (updates as any).radius = targetObject.radius * transform.scale;
+              updates.radius = targetObject.radius * transform.scale;
             } else {
               if (targetObject.width) updates.width = targetObject.width * transform.scale;
               if (targetObject.height) updates.height = targetObject.height * transform.scale;
@@ -394,8 +394,8 @@ async function executeAction(
         // Handle style updates
         if (style) {
           if (style.fill !== undefined) updates.fill = style.fill;
-          if (style.fontSize !== undefined) (updates as any).fontSize = style.fontSize;
-          if (style.text !== undefined) (updates as any).text = style.text;
+          if (style.fontSize !== undefined) updates.fontSize = style.fontSize;
+          if (style.text !== undefined) updates.text = style.text;
         }
         
         await updateObject(canvasId, targetObject.id, updates);
@@ -488,8 +488,8 @@ async function executeAction(
       };
       
       if (type === 'text') {
-        (objectParams as any).text = text ?? 'Login';
-        (objectParams as any).fontSize = fontSize ?? 16;
+        objectParams.text = text ?? 'Login';
+        objectParams.fontSize = fontSize ?? 16;
       }
       
       await createObject(canvasId, objectParams);
@@ -511,8 +511,8 @@ async function executeAction(
       };
       
       if (type === 'text') {
-        (objectParams as any).text = text ?? 'Card Title';
-        (objectParams as any).fontSize = fontSize ?? 16;
+        objectParams.text = text ?? 'Card Title';
+        objectParams.fontSize = fontSize ?? 16;
       }
       
       await createObject(canvasId, objectParams);

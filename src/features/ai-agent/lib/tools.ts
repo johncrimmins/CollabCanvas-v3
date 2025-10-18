@@ -203,7 +203,7 @@ export function canvasActionTool(
         y: z.number().optional()
       }).optional().nullable().describe('Offset for duplicate action (default: {x: 50, y: 50})')
     }),
-    func: async (params: any) => {
+    func: async (params: Record<string, unknown>) => {
       console.log('[canvasActionTool] ✅ TOOL CALLED with action:', params.action, params);
       
       const { action } = params;

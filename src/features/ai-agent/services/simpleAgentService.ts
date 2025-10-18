@@ -1,13 +1,10 @@
 // Simple AI Agent Service - Fully self-contained feature module with ReAct agent loop
 // This file handles ALL AI agent logic, configuration, and validation
 import { ChatOpenAI } from '@langchain/openai';
-import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
+import { HumanMessage, SystemMessage } from '@langchain/core/messages';
 import { createReactAgent } from '@langchain/langgraph/prebuilt';
 import { DynamicStructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
-import {
-  canvasActionTool,
-} from '../lib/tools';
 import type { ToolExecutionContext, AIAction, AIAgentResponse } from '../types';
 
 // Public API - Request/Response interfaces
@@ -17,7 +14,7 @@ interface CommandRequest {
   canvasId: string;
   userId: string;
   objectCount?: number;  // Optional: client can send current object count
-  objects?: any[];  // Optional: client can send current objects for agent context
+  objects?: unknown[];  // Optional: client can send current objects for agent context
 }
 
 // Main entry point - Feature is fully self-contained
@@ -106,10 +103,10 @@ export async function executeAICommand(request: CommandRequest): Promise<AIAgent
 // Internal service class - Not exported, implementation detail
 class SimpleAgentService {
   private openAiApiKey: string;
-  private currentObjects: any[];
+  private currentObjects: unknown[];
   private capturedActions: AIAction[] = [];
   
-  constructor(openAiApiKey: string, currentObjects: any[] = []) {
+  constructor(openAiApiKey: string, currentObjects: unknown[] = []) {
     this.openAiApiKey = openAiApiKey;
     this.currentObjects = currentObjects;
   }
@@ -130,7 +127,8 @@ class SimpleAgentService {
     this.capturedActions = [];
     
     // Create tool execution context
-    const toolContext: ToolExecutionContext = {
+    // Tool execution context (for reference)
+    const _toolContext: ToolExecutionContext = {
       canvasId: context.canvasId,
       userId: context.userId,
       userName: context.userName,
@@ -167,15 +165,18 @@ class SimpleAgentService {
         
         // Return actual canvas state formatted for LLM with unique IDs
         // Each object includes its ID which MUST be used for subsequent operations
-        const formattedObjects = this.currentObjects.map(obj => ({
-          id: obj.id,  // ← CRITICAL: This ID must be used to target this shape
-          type: obj.type,
-          position: obj.position || { x: 0, y: 0 },
-          fill: obj.fill || 'none',
-          width: obj.width,
-          height: obj.height,
-          radius: obj.radius,
-        }));
+        const formattedObjects = this.currentObjects.map((obj) => {
+          const o = obj as Record<string, unknown>;
+          return {
+            id: o.id,  // ← CRITICAL: This ID must be used to target this shape
+            type: o.type,
+            position: o.position || { x: 0, y: 0 },
+            fill: o.fill || 'none',
+            width: o.width,
+            height: o.height,
+            radius: o.radius,
+          };
+        });
         
         return JSON.stringify({
           objects: formattedObjects,
@@ -255,7 +256,7 @@ class SimpleAgentService {
           y: z.number().optional()
         }).optional().nullable().describe('Offset for duplicate action (default: {x: 50, y: 50})')
       }),
-      func: async (params: any) => {
+      func: async (params: Record<string, unknown>) => {
         console.log('[AI Agent] canvasAction called:', params.action, params);
         
         // Capture action for client-side execution
@@ -265,23 +266,28 @@ class SimpleAgentService {
         });
         
         // Return descriptive result for LLM to understand what happened
-        const { action } = params;
+        const { action, shape, target, targets } = params as {
+          action: string;
+          shape?: { style?: { fill?: string }; type?: string };
+          target?: string;
+          targets?: unknown[];
+        };
         
         if (action === 'create') {
-          const color = params.shape?.style?.fill || 'colored';
-          return `Successfully prepared to create a ${color} ${params.shape?.type}. Client will execute.`;
+          const color = shape?.style?.fill || 'colored';
+          return `Successfully prepared to create a ${color} ${shape?.type}. Client will execute.`;
         }
         if (action === 'update') {
-          return `Successfully prepared to update shape (ID: ${params.target}). Client will execute.`;
+          return `Successfully prepared to update shape (ID: ${target}). Client will execute.`;
         }
         if (action === 'delete') {
-          return `Successfully prepared to delete shape (ID: ${params.target}). Client will execute.`;
+          return `Successfully prepared to delete shape (ID: ${target}). Client will execute.`;
         }
         if (action === 'duplicate') {
-          return `Successfully prepared to duplicate shape (ID: ${params.target}). Client will execute.`;
+          return `Successfully prepared to duplicate shape (ID: ${target}). Client will execute.`;
         }
         if (action === 'arrange') {
-          return `Successfully prepared to arrange ${params.targets?.length || 0} shapes. Client will execute.`;
+          return `Successfully prepared to arrange ${targets?.length || 0} shapes. Client will execute.`;
         }
         
         return `Successfully prepared ${action} action`;
@@ -475,7 +481,11 @@ The canvas currently has ${context.objectCount} object(s).`);
     const descriptions = actionableTools.map(action => {
       // Handle new canvasAction tool
       if (action.tool === 'canvasAction') {
-        const { action: actionType, shape, target } = action.params;
+        const { action: actionType, shape, targets } = action.params as {
+          action: string;
+          shape?: { style?: { fill?: string }; type?: string };
+          targets?: unknown[];
+        };
         
         if (actionType === 'create' && shape) {
           const color = this.translateColor(shape.style?.fill);
@@ -491,14 +501,19 @@ The canvas currently has ${context.objectCount} object(s).`);
           return `duplicated the shape`;
         }
         if (actionType === 'arrange') {
-          const count = action.params.targets?.length || 0;
+          const count = targets?.length || 0;
           return `arranged ${count} shapes`;
         }
       }
       
       // Legacy tool support (for backward compatibility during transition)
       if (action.tool === 'manageShape') {
-        const { operation, shapeType, style, target } = action.params;
+        const { operation, shapeType, style, target } = action.params as {
+          operation: string;
+          shapeType?: string;
+          style?: { fill?: string };
+          target?: string;
+        };
         
         if (operation === 'create') {
           const color = this.translateColor(style?.fill);
