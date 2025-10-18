@@ -1,7 +1,7 @@
 // Shape preview component - renders low-opacity preview of shape being created
 'use client';
 
-import { Rect, Circle } from 'react-konva';
+import { Rect, Circle, Arrow } from 'react-konva';
 import { ShapePreview as ShapePreviewType } from '../types';
 
 interface ShapePreviewProps {
@@ -39,6 +39,26 @@ export function ShapePreview({ preview }: ShapePreviewProps) {
         stroke={preview.fill}
         strokeWidth={2}
         dash={[5, 5]}
+        listening={false}
+      />
+    );
+  }
+
+  if (preview.type === 'arrow') {
+    // For arrows, use the points array
+    const points = preview.points || [0, 0, 100, 100];
+    return (
+      <Arrow
+        x={preview.position.x}
+        y={preview.position.y}
+        points={points}
+        stroke={preview.fill}
+        strokeWidth={2}
+        fill={preview.fill}
+        opacity={0.5}
+        dash={[5, 5]}
+        pointerLength={10}
+        pointerWidth={10}
         listening={false}
       />
     );

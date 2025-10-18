@@ -21,11 +21,15 @@ export default function CanvasPage() {
   const [canvasId, setCanvasId] = useState<string | null>(null);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [showAIChat, setShowAIChat] = useState(false);
-  const [tool, setTool] = useState<'select' | 'rectangle' | 'circle'>('select');
+  const [tool, setTool] = useState<'select' | 'rectangle' | 'circle' | 'arrow'>('select');
   const [deselectTrigger, setDeselectTrigger] = useState(0);
   const [cursorPosition, setCursorPosition] = useState<Point | null>(null);
   const [shapePreviews, setShapePreviews] = useState<Record<string, ShapePreviewType>>({});
   const [selectedObjectId, setSelectedObjectId] = useState<string | null>(null);
+  
+  // Arrow drawing state
+  const [isDrawingArrow, setIsDrawingArrow] = useState(false);
+  const [arrowStartPoint, setArrowStartPoint] = useState<Point | null>(null);
   
   const { 
     objects, 
@@ -102,6 +106,36 @@ export default function CanvasPage() {
       return;
     }
     
+    // Handle arrow preview while drawing
+    if (tool === 'arrow') {
+      // Only show preview if actively drawing
+      if (isDrawingArrow && arrowStartPoint) {
+        const points: [number, number, number, number] = [
+          0,
+          0,
+          cursorPosition.x - arrowStartPoint.x,
+          cursorPosition.y - arrowStartPoint.y,
+        ];
+        
+        const preview: ShapePreviewType = {
+          type: 'arrow',
+          position: { x: arrowStartPoint.x, y: arrowStartPoint.y },
+          width: Math.abs(cursorPosition.x - arrowStartPoint.x),
+          height: Math.abs(cursorPosition.y - arrowStartPoint.y),
+          fill: '#3B82F6',
+          userId: user.id,
+          userName: user.displayName || user.email || 'Anonymous',
+          points,
+        };
+        
+        throttledBroadcastPreview(canvasId, preview, user.id);
+      } else {
+        // Clear preview if arrow tool selected but not drawing
+        broadcastShapePreview(canvasId, null, user.id).catch(console.error);
+      }
+      return;
+    }
+    
     // Broadcast preview for rectangle or circle
     // Position should match where the shape will be placed (centered on cursor)
     const preview: ShapePreviewType = {
@@ -116,7 +150,7 @@ export default function CanvasPage() {
     
     // Throttle the preview updates for performance
     throttledBroadcastPreview(canvasId, preview, user.id);
-  }, [canvasId, user, tool, cursorPosition, throttledBroadcastPreview]);
+  }, [canvasId, user, tool, cursorPosition, isDrawingArrow, arrowStartPoint, throttledBroadcastPreview]);
   
   // Cleanup: Clear shape preview on unmount or when leaving the canvas
   useEffect(() => {
@@ -128,7 +162,7 @@ export default function CanvasPage() {
   }, [canvasId, user]);
   
   const handlePlaceShape = useCallback(async (position: Point) => {
-    if (!canvasId || tool === 'select') return;
+    if (!canvasId || tool === 'select' || tool === 'arrow') return;
     
     // IMMEDIATELY clear the preview BEFORE creating object
     // This ensures no throttled updates come after
@@ -151,6 +185,69 @@ export default function CanvasPage() {
     // The effect will handle clearing preview when tool changes
     setTool('select');
   }, [canvasId, tool, createObject, user]);
+  
+  // Arrow creation handlers
+  const handleArrowMouseDown = useCallback((position: Point) => {
+    if (tool !== 'arrow' || !canvasId) return;
+    
+    setIsDrawingArrow(true);
+    setArrowStartPoint(position);
+    console.log('[Arrow] Started drawing at', position);
+  }, [tool, canvasId]);
+  
+  const handleArrowMouseUp = useCallback(async (position: Point) => {
+    if (!isDrawingArrow || !arrowStartPoint || !canvasId || !user) return;
+    
+    console.log('[Arrow] Finishing arrow from', arrowStartPoint, 'to', position);
+    
+    // Calculate arrow points relative to position (0,0)
+    const points: [number, number, number, number] = [
+      0, 
+      0, 
+      position.x - arrowStartPoint.x, 
+      position.y - arrowStartPoint.y
+    ];
+    
+    // Don't create arrow if it's too small (less than 5 pixels)
+    const length = Math.sqrt(
+      Math.pow(position.x - arrowStartPoint.x, 2) + 
+      Math.pow(position.y - arrowStartPoint.y, 2)
+    );
+    
+    if (length < 5) {
+      console.log('[Arrow] Arrow too small, canceling');
+      setIsDrawingArrow(false);
+      setArrowStartPoint(null);
+      // Clear preview
+      await broadcastShapePreview(canvasId, null, user.id);
+      return;
+    }
+    
+    // Clear preview before creating object
+    await broadcastShapePreview(canvasId, null, user.id);
+    
+    // Create arrow object with all properties
+    await createObject({
+      type: 'arrow',
+      x: arrowStartPoint.x,
+      y: arrowStartPoint.y,
+      width: Math.abs(position.x - arrowStartPoint.x),
+      height: Math.abs(position.y - arrowStartPoint.y),
+      fill: '#000000',
+      points,
+      stroke: '#000000',
+      strokeWidth: 2,
+      pointerLength: 10,
+      pointerWidth: 10,
+    });
+    
+    // Reset arrow drawing state
+    setIsDrawingArrow(false);
+    setArrowStartPoint(null);
+    
+    // Switch back to select tool
+    setTool('select');
+  }, [isDrawingArrow, arrowStartPoint, canvasId, user, createObject]);
   
   const handleCanvasClick = useCallback((position?: Point) => {
     if (tool === 'select') {
@@ -293,6 +390,31 @@ export default function CanvasPage() {
                     <circle cx="12" cy="12" r="10" />
                   </svg>
                 </button>
+                
+                <button
+                  onClick={() => setTool('arrow')}
+                  className={`p-2 rounded-md transition-colors ${
+                    tool === 'arrow'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'hover:bg-gray-100 text-gray-700'
+                  }`}
+                  title="Arrow - Click and drag"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                    <polyline points="12 5 19 12 12 19" />
+                  </svg>
+                </button>
               </div>
             </div>
             
@@ -334,6 +456,8 @@ export default function CanvasPage() {
             tool={tool} 
             onCanvasClick={handleCanvasClick}
             onCursorMove={handleCursorMove}
+            onArrowMouseDown={handleArrowMouseDown}
+            onArrowMouseUp={handleArrowMouseUp}
           >
             <ObjectRenderer
               objects={objects}

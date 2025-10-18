@@ -6,7 +6,7 @@ import { Point } from '@/shared/types';
  */
 export interface CanvasObject {
   id: string;
-  type: 'rectangle' | 'circle' | 'text';
+  type: 'rectangle' | 'circle' | 'text' | 'arrow';
   position: Point;
   width: number;
   height: number;
@@ -22,6 +22,12 @@ export interface CanvasObject {
   // Optional: for text objects
   text?: string;
   fontSize?: number;
+  // Optional: for arrows
+  points?: [number, number, number, number]; // [x1, y1, x2, y2]
+  stroke?: string;
+  strokeWidth?: number;
+  pointerLength?: number;
+  pointerWidth?: number;
 }
 
 /**
@@ -38,7 +44,7 @@ export interface ObjectUpdate {
  * Parameters for creating a new object
  */
 export interface CreateObjectParams {
-  type: 'rectangle' | 'circle' | 'text';
+  type: 'rectangle' | 'circle' | 'text' | 'arrow';
   x: number;
   y: number;
   width?: number;
@@ -50,11 +56,13 @@ export interface CreateObjectParams {
  * Shape preview for creation mode
  */
 export interface ShapePreview {
-  type: 'rectangle' | 'circle';
+  type: 'rectangle' | 'circle' | 'arrow';
   position: Point;
   width: number;
   height: number;
   fill: string;
   userId: string;
   userName?: string;
+  // Optional: for arrow preview
+  points?: [number, number, number, number];
 }

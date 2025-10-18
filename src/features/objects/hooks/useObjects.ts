@@ -71,7 +71,7 @@ export function useObjects(canvasId: string | null) {
   
   // Create object
   const createObject = useCallback(
-    async (params: CreateObjectParams) => {
+    async (params: CreateObjectParams & Partial<CanvasObject>) => {
       if (!canvasId || !user) return;
       
       const newObject: Omit<CanvasObject, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -82,6 +82,16 @@ export function useObjects(canvasId: string | null) {
         rotation: 0,
         fill: params.fill || '#3B82F6',
         createdBy: user.id,
+        // Include arrow-specific properties if provided
+        ...(params.points && { points: params.points }),
+        ...(params.stroke && { stroke: params.stroke }),
+        ...(params.strokeWidth && { strokeWidth: params.strokeWidth }),
+        ...(params.pointerLength && { pointerLength: params.pointerLength }),
+        ...(params.pointerWidth && { pointerWidth: params.pointerWidth }),
+        // Include text-specific properties if provided
+        ...(params.text && { text: params.text }),
+        ...(params.fontSize && { fontSize: params.fontSize }),
+        ...(params.radius && { radius: params.radius }),
       };
       
       try {

@@ -11,13 +11,15 @@ import { Point } from '@/shared/types';
 
 interface CanvasProps {
   canvasId: string;
-  tool?: 'select' | 'rectangle' | 'circle';
+  tool?: 'select' | 'rectangle' | 'circle' | 'arrow';
   children?: React.ReactNode;
   onCanvasClick?: (position?: Point) => void;
   onCursorMove?: (position: Point) => void;
+  onArrowMouseDown?: (position: Point) => void;
+  onArrowMouseUp?: (position: Point) => void;
 }
 
-export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onCursorMove }: CanvasProps) {
+export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onCursorMove, onArrowMouseDown, onArrowMouseUp }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage | null>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
@@ -78,6 +80,12 @@ export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onC
       
       // Check if clicking on a shape (use screen coords for intersection test)
       const clickedOnShape = stage.getIntersection(pointerPosition);
+      
+      // Handle arrow tool - start drawing
+      if (e.button === 0 && tool === 'arrow' && !clickedOnShape && onArrowMouseDown) {
+        onArrowMouseDown(canvasPos);
+        return; // Don't trigger normal canvas click or panning
+      }
       
       // If clicking on empty canvas, trigger canvas click callback
       if (e.button === 0 && !clickedOnShape) {
@@ -147,10 +155,21 @@ export function Canvas({ canvasId, tool = 'select', children, onCanvasClick, onC
   );
   
   // Handle mouse up
-  const handleMouseUp = useCallback(() => {
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    const stage = stageRef.current;
+    
+    // Handle arrow tool - finish drawing
+    if (stage && tool === 'arrow' && onArrowMouseUp) {
+      const pointerPosition = stage.getPointerPosition();
+      if (pointerPosition) {
+        const canvasPos = screenToCanvas(pointerPosition);
+        onArrowMouseUp(canvasPos);
+      }
+    }
+    
     setIsPanning(false);
     setLastPos(null);
-  }, []);
+  }, [tool, onArrowMouseUp, screenToCanvas]);
   
   // Handle mouse leave
   const handleMouseLeave = useCallback(() => {

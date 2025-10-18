@@ -6,7 +6,7 @@
 - [ ] Text formatting (bold, italic, font size, alignment)
 - [ ] Multi-select (shift-click and drag-to-select)
 - [ ] Duplicate operation (keyboard shortcut and context menu)
-- [ ] Line/Arrow shape type
+- [ ] Arrow shape type
 
 ### Phase 2: Testing Infrastructure (Production Readiness)
 - [ ] Vitest setup with unit test examples
